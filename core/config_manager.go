@@ -29,6 +29,9 @@ type configManager struct {
 	LoggerSetting loggerConfig
 	Origin        string
 	ApiKey        string
+	Cookie        string
+	Remote        string
+	MountPath     string
 }
 
 // 读取并解析配置文件
