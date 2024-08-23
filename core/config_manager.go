@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/spf13/viper"
 )
@@ -39,7 +38,8 @@ func (c *configManager) LoadConfig() {
 	vip := viper.New()
 	vip.SetConfigFile(c.ConfigPath())
 	vip.SetConfigType("yaml")
-
+	// vip.SetConfigName("config")
+	// vip.AddConfigPath(".")
 	if err := vip.ReadInConfig(); err != nil {
 		panic(err)
 	}
@@ -73,8 +73,16 @@ func (c *configManager) Version() string {
 
 // 获取项目根目录
 func (c *configManager) RootDir() string {
-	_, fullFilename, _, _ := runtime.Caller(0)
-	return filepath.Dir(filepath.Dir(fullFilename))
+	// _, fullFilename, _, _ := runtime.Caller(0)
+	// return filepath.Dir(filepath.Dir(fullFilename))
+
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Failed to get working directory: %v", err)
+	}
+	fmt.Println(dir)
+	return dir
+
 }
 
 // 获取配置文件目录
