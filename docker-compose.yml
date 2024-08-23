@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  cloudnas:
+    image: cloudnas/clouddrive2
+    container_name: clouddrive2
+    environment:
+      - TZ=Asia/Shanghai
+      - CLOUDDRIVE_HOME=/Config
+    volumes:
+      - /data/MediaWarp/cloud2/CloudNAS:/CloudNAS:shared
+      - /data/MediaWarp/cloud2/Config:/Config
+      - /data/MediaWarp/cloud2/media:/media:shared 
+    devices:
+      - /dev/fuse:/dev/fuse
+    ports:
+      - "19798:19798"
+    restart: unless-stopped
+    pid: "host"
+    privileged: true
+
+  emby_server:
+    image: "emby/embyserver_arm64v8:latest"
+    # image: "emby/embyserver:latest"
+    container_name: "emby_server"
+    restart: always
+    ports:
+      - "8096:8096"
+    volumes:
+      - /data/MediaWarp/emby:/config
+      - /data/MediaWarp/cloud2/CloudNAS/CloudDrive:/media
+    environment:
+      - "TZ=Asia/Shanghai"
+    networks:
+      - internal_network
+  MediaWarp:
+    container_name: "MediaWarp"
+    image: "ghcr.io/jonntd/MediaWarp:latest"
+    ports:
+      - "9096:9096"
+    volumes:
+      - /data/MediaWarp/config.yaml:/config.yaml
+      - /data/MediaWarp/logs:/logs
+    networks:
+      - internal_network
+    environment:
+      - "TZ=Asia/Shanghai"
+networks:
+  internal_network:
+    driver: bridge
