@@ -13,7 +13,7 @@ RUN GO111MODULE=on go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -a --trimpath --installsuffix cgo --ldflags="-s" -o MediaWarp
+RUN CGO_ENABLED=0 go build -a --trimpath --installsuffix cgo --ldflags="-s" -o media-warp
 
 
 FROM ghcr.io/by275/base:ubuntu24.04 AS base
@@ -33,8 +33,8 @@ FROM scratch
 COPY --from=rclone /usr/bin/rclone /usr/bin/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /app/MediaWarp .
+COPY --from=builder /app/media-warp .
 
 ENV GIN_MODE=release
-ENTRYPOINT ["/MediaWarp"]
+ENTRYPOINT ["/media-warp"]
 EXPOSE 9096

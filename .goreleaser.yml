@@ -1,7 +1,7 @@
-project_name: MediaWarp
+project_name: media-warp
 
 builds:
-  - binary: MediaWarp
+  - binary: media-warp
     goos:
       - windows
       - darwin
@@ -25,7 +25,7 @@ changelog:
       - '^tests:'
 
 archives:
-  - id: MediaWarp
+  - id: media-warp
     name_template: '{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm}}v{{ .Arm }}{{ end }}'
     format: tar.gz
     format_overrides:
@@ -35,37 +35,37 @@ archives:
       - LICENSE
 
 docker_manifests:
-  - name_template: 'jonntd/MediaWarp:{{ .Tag }}'
+  - name_template: 'jonntd/media-warp:{{ .Tag }}'
     image_templates:
-      - 'jonntd/MediaWarp:{{ .Tag }}-amd64'
-      - 'jonntd/MediaWarp:{{ .Tag }}-arm64'
-      - 'jonntd/MediaWarp:{{ .Tag }}-armv7'
-  - name_template: 'jonntd/MediaWarp:latest'
+      - 'jonntd/media-warp:{{ .Tag }}-amd64'
+      - 'jonntd/media-warp:{{ .Tag }}-arm64'
+      - 'jonntd/media-warp:{{ .Tag }}-armv7'
+  - name_template: 'jonntd/media-warp:latest'
     image_templates:
-      - 'jonntd/MediaWarp:{{ .Tag }}-amd64'
-      - 'jonntd/MediaWarp:{{ .Tag }}-arm64'
-      - 'jonntd/MediaWarp:{{ .Tag }}-armv7'
-  - name_template: 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}'
+      - 'jonntd/media-warp:{{ .Tag }}-amd64'
+      - 'jonntd/media-warp:{{ .Tag }}-arm64'
+      - 'jonntd/media-warp:{{ .Tag }}-armv7'
+  - name_template: 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}'
     image_templates:
-      - 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-amd64'
-      - 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-arm64'
-      - 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-armv7'
+      - 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-amd64'
+      - 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-arm64'
+      - 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-armv7'
 
-  - name_template: 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}'
+  - name_template: 'ghcr.io/jonntd/media-warp:{{ .Tag }}'
     image_templates:
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-amd64'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-arm64'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-armv7'
-  - name_template: 'ghcr.io/jonntd/MediaWarp:latest'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-amd64'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-arm64'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-armv7'
+  - name_template: 'ghcr.io/jonntd/media-warp:latest'
     image_templates:
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-amd64'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-arm64'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-armv7'
-  - name_template: 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-amd64'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-arm64'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-armv7'
+  - name_template: 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}'
     image_templates:
-      - 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-amd64'
-      - 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-arm64'
-      - 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-armv7'
+      - 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-amd64'
+      - 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-arm64'
+      - 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-armv7'
 
 dockers:
   - use: buildx
@@ -73,12 +73,12 @@ dockers:
     goarch: amd64
     dockerfile: buildx.Dockerfile
     image_templates:
-      - 'jonntd/MediaWarp:latest-amd64'
-      - 'jonntd/MediaWarp:{{ .Tag }}-amd64'
-      - 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-amd64'
-      - 'ghcr.io/jonntd/MediaWarp:latest-amd64'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-amd64'
-      - 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-amd64'
+      - 'jonntd/media-warp:latest-amd64'
+      - 'jonntd/media-warp:{{ .Tag }}-amd64'
+      - 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-amd64'
+      - 'ghcr.io/jonntd/media-warp:latest-amd64'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-amd64'
+      - 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-amd64'
     build_flag_templates:
       - '--pull'
       # https://github.com/opencontainers/image-spec/blob/main/annotations.md#pre-defined-annotation-keys
@@ -97,12 +97,12 @@ dockers:
     goarch: arm64
     dockerfile: buildx.Dockerfile
     image_templates:
-      - 'jonntd/MediaWarp:latest-arm64'
-      - 'jonntd/MediaWarp:{{ .Tag }}-arm64'
-      - 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-arm64'
-      - 'ghcr.io/jonntd/MediaWarp:latest-arm64'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-arm64'
-      - 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-arm64'
+      - 'jonntd/media-warp:latest-arm64'
+      - 'jonntd/media-warp:{{ .Tag }}-arm64'
+      - 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-arm64'
+      - 'ghcr.io/jonntd/media-warp:latest-arm64'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-arm64'
+      - 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-arm64'
     build_flag_templates:
       - '--pull'
       # https://github.com/opencontainers/image-spec/blob/main/annotations.md#pre-defined-annotation-keys
@@ -122,12 +122,12 @@ dockers:
     goarm: '7'
     dockerfile: buildx.Dockerfile
     image_templates:
-      - 'jonntd/MediaWarp:latest-armv7'
-      - 'jonntd/MediaWarp:{{ .Tag }}-armv7'
-      - 'jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-armv7'
-      - 'ghcr.io/jonntd/MediaWarp:latest-armv7'
-      - 'ghcr.io/jonntd/MediaWarp:{{ .Tag }}-armv7'
-      - 'ghcr.io/jonntd/MediaWarp:v{{ .Major }}.{{ .Minor }}-armv7'
+      - 'jonntd/media-warp:latest-armv7'
+      - 'jonntd/media-warp:{{ .Tag }}-armv7'
+      - 'jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-armv7'
+      - 'ghcr.io/jonntd/media-warp:latest-armv7'
+      - 'ghcr.io/jonntd/media-warp:{{ .Tag }}-armv7'
+      - 'ghcr.io/jonntd/media-warp:v{{ .Major }}.{{ .Minor }}-armv7'
     build_flag_templates:
       - '--pull'
       # https://github.com/opencontainers/image-spec/blob/main/annotations.md#pre-defined-annotation-keys

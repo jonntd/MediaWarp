@@ -23,7 +23,7 @@ FROM scratch
 COPY --from=rclone /usr/bin/rclone /usr/bin/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY MediaWarp /
+COPY media-warp /
 ENV GIN_MODE=release
-ENTRYPOINT ["/MediaWarp"]
+ENTRYPOINT ["/media-warp"]
 EXPOSE 9096
