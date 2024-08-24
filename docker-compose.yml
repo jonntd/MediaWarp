@@ -7,9 +7,8 @@ services:
       - TZ=Asia/Shanghai
       - CLOUDDRIVE_HOME=/Config
     volumes:
-      - /data/MediaWarp/cloud2/CloudNAS:/CloudNAS:shared
-      - /data/MediaWarp/cloud2/Config:/Config
-      - /data/MediaWarp/cloud2/media:/media:shared 
+      - /data/media-server/cloud2/CloudNAS:/CloudNAS:shared
+      - /data/media-server/cloud2/Config:/Config
     devices:
       - /dev/fuse:/dev/fuse
     ports:
@@ -20,30 +19,36 @@ services:
 
   emby_server:
     image: "emby/embyserver_arm64v8:latest"
-    # image: "emby/embyserver:latest"
     container_name: "emby_server"
     restart: always
     ports:
       - "8096:8096"
     volumes:
-      - /data/MediaWarp/emby:/config
-      - /data/MediaWarp/cloud2/CloudNAS/CloudDrive:/media
+      - /data/media-server/emby:/config
+      # - /data/media-server/cloud2/CloudNAS/CloudDrive:/media
+      - /data/media-server/media:/media
+
     environment:
       - "TZ=Asia/Shanghai"
     networks:
       - internal_network
-  MediaWarp:
-    container_name: "MediaWarp"
-    image: "ghcr.io/jonntd/MediaWarp:latest"
+
+  media_warp:
+    container_name: "media_warp"
+    image: "ghcr.io/jonntd/media-warp:latest"
+    # image: "media-warp"
     ports:
       - "9096:9096"
     volumes:
-      - /data/MediaWarp/config.yaml:/config.yaml
-      - /data/MediaWarp/logs:/logs
+      - /data/media-server/config/config.yaml:/config/config.yaml
+      # - /data/media-server/config/rclone.conf:/.config/rclone/rclone.conf
+      - /data/media-server/logs:/logs
+      - /data/media-server/media:/media
     networks:
       - internal_network
     environment:
       - "TZ=Asia/Shanghai"
+
 networks:
   internal_network:
     driver: bridge

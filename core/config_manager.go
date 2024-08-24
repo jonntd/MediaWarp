@@ -31,6 +31,7 @@ type configManager struct {
 	Cookie        string
 	Remote        string
 	MountPath     string
+	Debug         bool
 }
 
 // 读取并解析配置文件

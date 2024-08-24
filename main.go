@@ -17,7 +17,7 @@ var logger = core.GetLogger()
 var isDebug bool
 
 func init() {
-	flag.BoolVar(&isDebug, "debug", true, "是否启用调试模式")
+	flag.BoolVar(&isDebug, "debug", false, "是否启用调试模式")
 	fmt.Print(
 		constants.LOGO,
 		pkg.Center(
