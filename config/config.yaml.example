@@ -12,3 +12,4 @@ ApiKey: 2eaxxxxxxxxxa8                  # 上游Emby服务器API KEY
 Remote: 115                             # Rclone 挂载的网盘名字
 MountPath: C:\media                     # 本地媒体库目录
 Cookie: UID=; CID=; SEID=               # 115 cookie
+Debug: true
