@@ -13,6 +13,43 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type TaskManager struct {
+	mu      sync.Mutex
+	running bool
+	cond    *sync.Cond
+}
+
+// 创建 TaskManager 的实例
+func NewTaskManager() *TaskManager {
+	tm := &TaskManager{}
+	tm.cond = sync.NewCond(&tm.mu)
+	return tm
+}
+
+// 任务执行函数，确保同一时间只有一个任务在运行
+func (tm *TaskManager) RunTask(c *gin.Context, handler gin.HandlerFunc) {
+	tm.mu.Lock()
+	for tm.running {
+		tm.cond.Wait()
+	}
+	tm.running = true
+	tm.mu.Unlock()
+
+	// 在新的 Goroutine 中异步执行任务
+	go func() {
+		// 处理任务
+		handler(c)
+
+		// 任务完成，允许下一个任务执行
+		tm.mu.Lock()
+		tm.running = false
+		tm.cond.Signal()
+		tm.mu.Unlock()
+	}()
+}
+
+var taskManager = NewTaskManager() // 定义全局任务管理器，只允许一个任务同时运行
+
 func MediaFileSyncHandler(ctx *gin.Context) {
 	fullPath := ctx.Param("path")
 	logger.ServerLogger.Info(fullPath)
@@ -24,8 +61,9 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 	// 	return
 	// }
 	sourceDir := config.Remote + ":" + fullPath
-	go syncAndCreateEmptyFiles(sourceDir, config.MountPath)
-
+	taskManager.RunTask(ctx, func(c *gin.Context) {
+		syncAndCreateEmptyFiles(sourceDir, config.MountPath)
+	})
 	ctx.JSON(200, gin.H{
 		"message": "success",
 		"path":    fullPath})
