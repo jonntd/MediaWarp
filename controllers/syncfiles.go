@@ -29,20 +29,21 @@ func NewTaskManager() *TaskManager {
 
 // 任务执行函数，确保同一时间只有一个任务在运行
 func (tm *TaskManager) RunTask(handler func()) {
-	tm.mu.Lock()
-	for tm.running {
-		tm.cond.Wait()
-	}
-	tm.running = true
-	tm.mu.Unlock()
+	go func() { // 任务执行在新的 Goroutine 中完全异步化
+		tm.mu.Lock()
+		for tm.running { // 如果有任务在运行，等待
+			tm.cond.Wait()
+		}
+		tm.running = true
+		tm.mu.Unlock()
 
-	// 在新的 Goroutine 中异步执行任务
-	go func() {
-		handler() // 不传递 gin.Context，避免阻塞 HTTP 请求
-		time.Sleep(30 * time.Second)
+		handler() // 执行任务
+
+		time.Sleep(30 * time.Second) // 任务结束后等待 30 秒
+
 		tm.mu.Lock()
 		tm.running = false
-		tm.cond.Signal()
+		tm.cond.Signal() // 通知下一个任务可以开始执行
 		tm.mu.Unlock()
 	}()
 }
