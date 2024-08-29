@@ -28,7 +28,7 @@ func NewTaskManager() *TaskManager {
 }
 
 // 任务执行函数，确保同一时间只有一个任务在运行
-func (tm *TaskManager) RunTask(c *gin.Context, handler gin.HandlerFunc) {
+func (tm *TaskManager) RunTask(handler func()) {
 	tm.mu.Lock()
 	for tm.running {
 		tm.cond.Wait()
@@ -38,14 +38,12 @@ func (tm *TaskManager) RunTask(c *gin.Context, handler gin.HandlerFunc) {
 
 	// 在新的 Goroutine 中异步执行任务
 	go func() {
-		// 处理任务
-		handler(c)
-		// 任务完成，允许下一个任务执行
+		handler() // 不传递 gin.Context，避免阻塞 HTTP 请求
+		time.Sleep(30 * time.Second)
 		tm.mu.Lock()
 		tm.running = false
 		tm.cond.Signal()
 		tm.mu.Unlock()
-		time.Sleep(30 * time.Second)
 	}()
 }
 
@@ -62,7 +60,7 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 	// 	return
 	// }
 	sourceDir := config.Remote + ":" + fullPath
-	taskManager.RunTask(ctx, func(c *gin.Context) {
+	taskManager.RunTask(func() {
 		syncAndCreateEmptyFiles(sourceDir, config.MountPath)
 	})
 	ctx.JSON(200, gin.H{
