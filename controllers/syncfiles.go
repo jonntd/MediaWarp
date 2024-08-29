@@ -59,13 +59,16 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 	// 	})
 	// 	return
 	// }
+
+	ctx.JSON(200, gin.H{
+		"message": "success",
+		"path":    fullPath})
+
 	sourceDir := config.Remote + ":" + fullPath
 	taskManager.RunTask(func() {
 		syncAndCreateEmptyFiles(sourceDir, config.MountPath)
 	})
-	ctx.JSON(200, gin.H{
-		"message": "success",
-		"path":    fullPath})
+
 }
 func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 	colonIndex := strings.Index(sourceDir, ":")
