@@ -40,12 +40,12 @@ func (tm *TaskManager) RunTask(c *gin.Context, handler gin.HandlerFunc) {
 	go func() {
 		// 处理任务
 		handler(c)
-		time.Sleep(30 * time.Second)
 		// 任务完成，允许下一个任务执行
 		tm.mu.Lock()
 		tm.running = false
 		tm.cond.Signal()
 		tm.mu.Unlock()
+		time.Sleep(30 * time.Second)
 	}()
 }
 
