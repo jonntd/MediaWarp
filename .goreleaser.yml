@@ -91,7 +91,8 @@ dockers:
       - '--label=org.opencontainers.image.revision={{.FullCommit}}'
       - '--label=org.opencontainers.image.version={{.Version}}'
       - '--platform=linux/amd64'
-
+    files:
+      - static/
   - use: buildx
     goos: linux
     goarch: arm64
@@ -115,7 +116,8 @@ dockers:
       - '--label=org.opencontainers.image.revision={{.FullCommit}}'
       - '--label=org.opencontainers.image.version={{.Version}}'
       - '--platform=linux/arm64'
-
+    files:
+      - static/
   - use: buildx
     goos: linux
     goarch: arm
@@ -140,3 +142,5 @@ dockers:
       - '--label=org.opencontainers.image.revision={{.FullCommit}}'
       - '--label=org.opencontainers.image.version={{.Version}}'
       - '--platform=linux/arm/v7'
+    files:
+      - static/
