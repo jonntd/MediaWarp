@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,6 +90,7 @@ func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 		fmt.Printf("Error creating .strm files: %v\n", err)
 		return
 	}
+	scanMediaLibrary()
 }
 
 func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
@@ -207,4 +211,74 @@ func createStrmFiles(sourceDir, remoteDest string, colonIndex int) error {
 	}
 
 	return nil
+}
+
+type Task struct {
+	Name string `json:"Name"`
+	Id   string `json:"Id"`
+}
+
+func scanMediaLibrary() {
+	// 设置 Emby 服务器信息
+	embyServer := config.Origin
+	apiKey := config.ApiKey // 替换为实际的 API 密钥
+	// 构建获取任务列表的 URL
+	url := fmt.Sprintf("%s/emby/ScheduledTasks?api_key=%s", embyServer, apiKey)
+
+	// 发送 GET 请求获取任务列表
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// 读取响应体
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return
+	}
+
+	// 解析 JSON 响应
+	var tasks []Task
+	if err := json.Unmarshal(body, &tasks); err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
+
+	// 查找 "Scan media library" 任务的 ID
+	var scanTaskId string
+	for _, task := range tasks {
+		if task.Name == "Scan media library" {
+			scanTaskId = task.Id
+			break
+		}
+	}
+
+	if scanTaskId == "" {
+		fmt.Println("Scan media library task not found")
+		return
+	}
+
+	// 构建执行任务的 URL
+	runUrl := fmt.Sprintf("%s/emby/ScheduledTasks/Running/%s?api_key=%s", embyServer, scanTaskId, apiKey)
+
+	// 发送 POST 请求执行任务
+	runReq, err := http.NewRequest("POST", runUrl, nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
+
+	runResp, err := http.DefaultClient.Do(runReq)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return
+	}
+	defer runResp.Body.Close()
+	if runResp.StatusCode == http.StatusNoContent {
+		fmt.Println("Scan Media Library task executed successfully")
+	}
+
 }

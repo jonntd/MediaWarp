@@ -41,8 +41,12 @@ func InitRouter() *gin.Engine {
 	// ginR.Use(middleware.LogRawRequest())
 	DriveClient = _115.MustNew115DriveClient(config.Cookie)
 	make_config()
+	core.TaskCron.Start()
+
+	ginR.Static("/static", "./static")
 	ginR.Use(middleware.QueryCaseInsensitive())
 	ginR.Use(middleware.LogMiddleware())
+	core.SetupRouter(ginR)
 
 	// UserLibraryService
 	registerRoutes(ginR, "/Users/:userId/Items", controllers.DefaultHandler, http.MethodGet)
@@ -54,13 +58,12 @@ func InitRouter() *gin.Engine {
 	registerRoutes(ginR, "/Items/:itemId/PlaybackInfo", controllers.PlaybackInfoHandler, http.MethodGet)
 	registerRoutes(ginR, "/Items/:itemId/PlaybackInfo", controllers.PlaybackInfoHandler, http.MethodPost)
 	registerRoutes(ginR, "/Sync/*path", controllers.MediaFileSyncHandler, http.MethodGet)
-	registerRoutes(ginR, "/Sync/*path", controllers.MediaFileSyncHandler, http.MethodPost)
 	// VideoService
 	// registerRoutes(ginR, "/Videos/:itemId/:name", controllers.VideosHandler, http.MethodGet)
 	registerRoutes(ginR, "/Videos/:itemId/:name", func(c *gin.Context) {
 		controllers.StreamHandler(c, DriveClient)
 	}, http.MethodGet)
-	registerRoutes(ginR, "/emby/videos/:videoId/stream.strm", func(c *gin.Context) {
+	registerRoutes(ginR, "/videos/:videoId/stream.strm", func(c *gin.Context) {
 		controllers.StreamHandler(c, DriveClient)
 	}, http.MethodGet)
 
