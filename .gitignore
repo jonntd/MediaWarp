@@ -4,3 +4,5 @@ config/config.yaml
 
 # 执行文件
 MediaWarp*
+/rclone.exe
+/tasks.json
