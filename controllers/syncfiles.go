@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -280,5 +281,86 @@ func scanMediaLibrary() {
 	if runResp.StatusCode == http.StatusNoContent {
 		fmt.Println("Scan Media Library task executed successfully")
 	}
+
+}
+
+// Middleware to check API Key
+func apiKeyAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey != config.ApiKey {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: Invalid API Key"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// Handle the API Key verification
+func verifyAPIKey(c *gin.Context) {
+	apiKey := c.GetHeader("X-API-Key")
+	if apiKey == config.ApiKey {
+		c.JSON(http.StatusOK, gin.H{"message": "API Key is valid"})
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
+	}
+}
+
+// IndexHandler renders the main page with the folder structure
+func SyncfolderHandler(ctx *gin.Context) {
+	apiKey := ctx.Query("apikey")
+	path := ctx.Query("path")
+	if path == "" {
+		path = ""
+	}
+	var folders []string
+	var err error
+	if apiKey == config.ApiKey {
+		// Run the rclone lsf command to get the directory listing
+		cmd := exec.Command("rclone", "lsf", "115:"+path, "--dirs-only")
+		output, err := cmd.Output()
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, fmt.Sprintf("Error running rclone: %v", err))
+			return
+		}
+		// Split the output into lines
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		// Create a slice of folders
+		for _, line := range lines {
+			if line != "" {
+				folders = append(folders, line)
+			}
+		}
+	}
+	// Render the template
+	tmpl := template.Must(template.ParseFiles("static/syncFolder.html"))
+	err = tmpl.Execute(ctx.Writer, struct {
+		Path    string
+		Folders []string
+	}{
+		Path:    path,
+		Folders: folders,
+	})
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, fmt.Sprintf("Error rendering template: %v", err))
+		return
+	}
+}
+
+// Handle sync folder requests
+func handleSyncFolder(ctx *gin.Context) {
+	path := ctx.Param("path")
+	fmt.Printf("Sync requested for folder: %s\n", path)
+	ctx.JSON(http.StatusOK, gin.H{"message": "Sync request received", "path": path})
+}
+
+func SyncFilesRouter(router *gin.Engine) {
+	// API to verify API Key
+	router.POST("/verify", verifyAPIKey)
+	// Routes with API Key auth
+	router.GET("/syncfolder", SyncfolderHandler)
+	// router.POST("/Sync/*path", apiKeyAuth(), MediaFileSyncHandler)
+	router.POST("/Sync/*path", apiKeyAuth(), handleSyncFolder)
 
 }

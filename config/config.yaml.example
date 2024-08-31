@@ -10,6 +10,7 @@ LoggerSetting:                          # 日志设定
 Origin: http://127.0.0.1:8096           # 上游Emby服务器地址
 ApiKey: 2eaxxxxxxxxxa8                  # 上游Emby服务器API KEY
 Remote: 115                             # Rclone 挂载的网盘名字
+PacerMinSleep: 0.333                    # 115 api qps 限制
 MountPath: C:\media                     # 本地媒体库目录
 Cookie: UID=; CID=; SEID=               # 115 cookie
 Debug: true

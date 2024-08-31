@@ -1,4 +1,4 @@
-package core
+package controllers
 
 import (
 	"encoding/json"
@@ -240,7 +240,7 @@ func loadTasksFromFile() {
 	fmt.Printf("loadTasksFromFile\n")
 }
 
-func SetupRouter(router *gin.Engine) {
+func TaskCronRouter(router *gin.Engine) {
 	router.POST("/task", addTask)
 	router.GET("/tasks", listTasks)
 	router.DELETE("/task/:name", deleteTask)

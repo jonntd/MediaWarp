@@ -3,10 +3,32 @@ package core
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/viper"
 )
+
+func make_config() {
+	remoteName := config.Remote
+	remoteType := config.Remote
+	cookie := config.Cookie
+	pacerMinSleep := config.PacerMinSleep
+	cmdDelete := exec.Command("rclone", "config", "delete", remoteName)
+	if output, err := cmdDelete.CombinedOutput(); err != nil {
+		fmt.Printf("Failed to delete existing config: %s\nOutput: %s", err, string(output))
+	}
+
+	cmd := exec.Command("rclone", "config", "create", remoteName, remoteType,
+		"cookie", cookie,
+		"pacer_min_sleep", pacerMinSleep,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Failed to execute command: %s\nOutput: %s", err, string(output))
+	}
+	fmt.Printf("Command output: %s", string(output))
+}
 
 type serverConfig struct {
 	Host string
@@ -32,6 +54,7 @@ type configManager struct {
 	Remote        string
 	MountPath     string
 	Debug         bool
+	PacerMinSleep string
 }
 
 // 读取并解析配置文件
@@ -65,6 +88,8 @@ func (c *configManager) CreateDir() {
 func (c *configManager) Init() {
 	c.LoadConfig()
 	c.CreateDir()
+	make_config()
+
 }
 
 // 获取版本号
@@ -81,7 +106,6 @@ func (c *configManager) RootDir() string {
 	if err != nil {
 		fmt.Println("Failed to get working directory: %v", err)
 	}
-	fmt.Println(dir)
 	return dir
 
 }

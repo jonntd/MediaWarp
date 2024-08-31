@@ -5,9 +5,7 @@ import (
 	"MediaWarp/controllers"
 	"MediaWarp/core"
 	"MediaWarp/middleware"
-	"fmt"
 	"net/http"
-	"os/exec"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,38 +13,16 @@ import (
 var DriveClient *_115.DriveClient
 var config = core.GetConfig()
 
-func make_config() {
-	remoteName := config.Remote
-	remoteType := config.Remote
-	cookie := config.Cookie
-	pacerMinSleep := "0.333"
-	cmdDelete := exec.Command("rclone", "config", "delete", remoteName)
-	if output, err := cmdDelete.CombinedOutput(); err != nil {
-		fmt.Printf("Failed to delete existing config: %s\nOutput: %s", err, string(output))
-	}
-
-	cmd := exec.Command("rclone", "config", "create", remoteName, remoteType,
-		"cookie", cookie,
-		"pacer_min_sleep", pacerMinSleep,
-	)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("Failed to execute command: %s\nOutput: %s", err, string(output))
-	}
-	fmt.Printf("Command output: %s", string(output))
-}
-
 func InitRouter() *gin.Engine {
 	ginR := gin.New()
 	// ginR.Use(middleware.LogRawRequest())
 	DriveClient = _115.MustNew115DriveClient(config.Cookie)
-	make_config()
-	core.TaskCron.Start()
-
+	controllers.TaskCron.Start()
 	ginR.Static("/static", "./static")
 	ginR.Use(middleware.QueryCaseInsensitive())
 	ginR.Use(middleware.LogMiddleware())
-	core.SetupRouter(ginR)
+	controllers.TaskCronRouter(ginR)
+	controllers.SyncFilesRouter(ginR)
 
 	// UserLibraryService
 	registerRoutes(ginR, "/Users/:userId/Items", controllers.DefaultHandler, http.MethodGet)
@@ -57,7 +33,7 @@ func InitRouter() *gin.Engine {
 	// ItemsService
 	registerRoutes(ginR, "/Items/:itemId/PlaybackInfo", controllers.PlaybackInfoHandler, http.MethodGet)
 	registerRoutes(ginR, "/Items/:itemId/PlaybackInfo", controllers.PlaybackInfoHandler, http.MethodPost)
-	registerRoutes(ginR, "/Sync/*path", controllers.MediaFileSyncHandler, http.MethodGet)
+	// registerRoutes(ginR, "/Sync/*path", controllers.MediaFileSyncHandler, http.MethodGet)
 	// VideoService
 	// registerRoutes(ginR, "/Videos/:itemId/:name", controllers.VideosHandler, http.MethodGet)
 	registerRoutes(ginR, "/Videos/:itemId/:name", func(c *gin.Context) {
