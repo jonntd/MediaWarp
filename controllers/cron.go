@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 	"sync"
@@ -16,7 +17,7 @@ var (
 	TaskCron      *cron.Cron
 	taskIDs       map[string]cron.EntryID
 	taskSchedules map[string]string
-	taskFunctions map[string]string // 用于存储 function 名称
+	taskFunctions map[string]string
 	mu            sync.Mutex
 )
 
@@ -31,8 +32,8 @@ func init() {
 	TaskCron = cron.New(cron.WithSeconds())
 	taskIDs = make(map[string]cron.EntryID)
 	taskSchedules = make(map[string]string)
-	taskFunctions = make(map[string]string) // 初始化 taskFunctions
-	loadTasksFromFile()                     // 启动时加载任务
+	taskFunctions = make(map[string]string)
+	loadTasksFromFile()
 }
 
 func customFunction1() {
@@ -47,35 +48,11 @@ func customFunction3() {
 	fmt.Printf("Executing custom function 3 at %s\n", time.Now())
 }
 
-// 定义函数映射
 var taskFunctionsMap = map[string]func(){
 	"func1": customFunction1,
 	"func2": customFunction2,
 	"func3": customFunction3,
-	// 可以在这里继续添加更多函数
-}
-
-// Task function that runs once and then deletes itself
-func runOnceAndDelete(taskName string, taskFunc func()) func() {
-	return func() {
-		// 执行任务
-		taskFunc()
-
-		// 删除任务
-		mu.Lock()
-		defer mu.Unlock()
-
-		entryID, exists := taskIDs[taskName]
-		if exists {
-			TaskCron.Remove(entryID)
-			delete(taskIDs, taskName)
-			delete(taskSchedules, taskName)
-			delete(taskFunctions, taskName)
-			saveTasksToFile() // 删除任务后保存到文件
-		}
-
-		fmt.Printf("Task %s executed and removed\n", taskName)
-	}
+	// 添加更多函数
 }
 
 func addTask(c *gin.Context) {
@@ -93,23 +70,14 @@ func addTask(c *gin.Context) {
 		return
 	}
 
-	// 查找对应的函数
 	taskFunc, exists := taskFunctionsMap[taskInfo.Function]
 	if !exists {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid function name"})
 		return
 	}
 
-	var taskToRun func()
-	if isOneTimeTask(taskInfo.Schedule) {
-		taskToRun = runOnceAndDelete(taskInfo.Name, taskFunc)
-	} else {
-		taskToRun = taskFunc
-		// 添加任务后立即执行一次（可选）
-		go taskToRun()
-	}
-
-	entryID, err := TaskCron.AddFunc(taskInfo.Schedule, taskToRun)
+	go taskFunc() // 可选：立即执行一次
+	entryID, err := TaskCron.AddFunc(taskInfo.Schedule, taskFunc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid schedule"})
 		return
@@ -117,15 +85,10 @@ func addTask(c *gin.Context) {
 
 	taskSchedules[taskInfo.Name] = taskInfo.Schedule
 	taskIDs[taskInfo.Name] = entryID
-	taskFunctions[taskInfo.Name] = taskInfo.Function // 保存 function 名称
-	saveTasksToFile()                                // 添加任务后保存到文件
+	taskFunctions[taskInfo.Name] = taskInfo.Function
+	saveTasksToFile()
 
 	c.JSON(http.StatusOK, gin.H{"status": "Task added", "task_name": taskInfo.Name})
-}
-
-func isOneTimeTask(schedule string) bool {
-	// 判断是否为每年1月1日的表达式
-	return schedule == "0 0 0 1 1 *"
 }
 
 func listTasks(c *gin.Context) {
@@ -148,7 +111,7 @@ func listTasks(c *gin.Context) {
 
 func deleteTask(c *gin.Context) {
 	taskName := c.Param("name")
-
+	fmt.Printf("taskName: %s\n", taskName)
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -170,6 +133,7 @@ func deleteTask(c *gin.Context) {
 }
 
 func saveTasksToFile() {
+
 	file, err := os.Create("tasks.json")
 	if err != nil {
 		fmt.Printf("Error creating file: %v\n", err)
@@ -199,6 +163,7 @@ func loadTasksFromFile() {
 	file, err := os.Open("tasks.json")
 	if err != nil {
 		if os.IsNotExist(err) {
+			fmt.Printf("tasks.json file does not exist. Skipping load.\n")
 			return
 		}
 		fmt.Printf("Error opening file: %v\n", err)
@@ -220,14 +185,7 @@ func loadTasksFromFile() {
 			continue
 		}
 
-		var taskToRun func()
-		if isOneTimeTask(task.Schedule) {
-			taskToRun = runOnceAndDelete(task.Name, taskFunc)
-		} else {
-			taskToRun = taskFunc
-		}
-
-		entryID, err := TaskCron.AddFunc(task.Schedule, taskToRun)
+		entryID, err := TaskCron.AddFunc(task.Schedule, taskFunc)
 		if err != nil {
 			fmt.Printf("Error adding task: %v\n", err)
 			continue
@@ -235,16 +193,24 @@ func loadTasksFromFile() {
 
 		taskIDs[task.Name] = entryID
 		taskSchedules[task.Name] = task.Schedule
-		taskFunctions[task.Name] = task.Function // 加载 function 名称
+		taskFunctions[task.Name] = task.Function
 	}
-	fmt.Printf("loadTasksFromFile\n")
+	fmt.Printf("Tasks loaded from file\n")
+}
+
+func TaskCronHandler(ctx *gin.Context) {
+	taskTemplate := template.Must(template.ParseFiles("static/task.html"))
+	err := taskTemplate.Execute(ctx.Writer, nil)
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error rendering template")
+		return
+	}
 }
 
 func TaskCronRouter(router *gin.Engine) {
-	router.POST("/task", addTask)
-	router.GET("/tasks", listTasks)
-	router.DELETE("/task/:name", deleteTask)
-	router.GET("/task", func(c *gin.Context) {
-		c.File("./static/task.html")
-	})
+	router.POST("/task", apiKeyAuth(), addTask)
+	router.GET("/tasks", apiKeyAuth(), listTasks)
+	router.DELETE("/task/:name", apiKeyAuth(), deleteTask)
+	router.GET("/task", TaskCronHandler)
+
 }

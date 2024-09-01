@@ -4,10 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Scheduler</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Roboto', sans-serif;
+            font-family: "Helvetica Neue", Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
             padding: 0;
@@ -48,6 +47,7 @@
             font-size: 16px;
             border-radius: 5px;
             border: 1px solid #ddd;
+            font-family: inherit;
         }
 
         button {
@@ -138,8 +138,16 @@
             const taskForm = document.getElementById('taskForm');
             const taskTableBody = document.getElementById('taskTableBody');
 
+            // Check if API Key is set on page load
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                alert('Unauthorized: Please login again.');
+                window.location.href = "/static/login.html";
+                return;
+            }
+
             // Fetch and display tasks when page loads
-            fetchTasks();
+            fetchTasks(apiKey);
 
             taskForm.addEventListener('submit', function(event) {
                 event.preventDefault();
@@ -153,7 +161,8 @@
                 fetch('/task', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
                     },
                     body: JSON.stringify(taskData)
                 })
@@ -161,53 +170,60 @@
                 .then(data => {
                     alert(`Task ${data.task_name} has been saved`);
                     taskForm.reset();
-                    fetchTasks();
+                    fetchTasks(apiKey);
                 })
                 .catch(error => {
                     console.error('Error:', error);
                 });
             });
 
-            function fetchTasks() {
-                fetch('/tasks')
-                    .then(response => response.json())
-                    .then(tasks => {
-                        taskTableBody.innerHTML = '';
-                        tasks.forEach(task => {
-                            const row = document.createElement('tr');
+            function fetchTasks(apiKey) {
+                fetch('/tasks', {
+                    headers: {
+                        'X-API-Key': apiKey
+                    }
+                })
+                .then(response => response.json())
+                .then(tasks => {
+                    taskTableBody.innerHTML = '';
+                    tasks.forEach(task => {
+                        const row = document.createElement('tr');
 
-                            const nameCell = document.createElement('td');
-                            nameCell.textContent = task.name;
-                            row.appendChild(nameCell);
+                        const nameCell = document.createElement('td');
+                        nameCell.textContent = task.name;
+                        row.appendChild(nameCell);
 
-                            const scheduleCell = document.createElement('td');
-                            scheduleCell.textContent = task.schedule;
-                            row.appendChild(scheduleCell);
+                        const scheduleCell = document.createElement('td');
+                        scheduleCell.textContent = task.schedule;
+                        row.appendChild(scheduleCell);
 
-                            const actionsCell = document.createElement('td');
-                            actionsCell.className = 'task-actions';
+                        const actionsCell = document.createElement('td');
+                        actionsCell.className = 'task-actions';
 
-                            const deleteButton = document.createElement('button');
-                            deleteButton.textContent = 'Delete';
-                            deleteButton.className = 'delete-btn';
-                            deleteButton.onclick = () => deleteTask(task.name);
-                            actionsCell.appendChild(deleteButton);
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.className = 'delete-btn';
+                        deleteButton.onclick = () => deleteTask(task.name, apiKey);
+                        actionsCell.appendChild(deleteButton);
 
-                            row.appendChild(actionsCell);
-                            taskTableBody.appendChild(row);
-                        });
+                        row.appendChild(actionsCell);
+                        taskTableBody.appendChild(row);
                     });
+                });
             }
 
-            function deleteTask(taskName) {
+            function deleteTask(taskName, apiKey) {
                 if (confirm(`Are you sure you want to delete the task "${taskName}"?`)) {
                     fetch(`/task/${taskName}`, {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        headers: {
+                            'X-API-Key': apiKey
+                        }
                     })
                     .then(response => response.json())
                     .then(data => {
                         alert(`Task ${data.task_name} has been deleted`);
-                        fetchTasks();
+                        fetchTasks(apiKey);
                     })
                     .catch(error => {
                         console.error('Error:', error);

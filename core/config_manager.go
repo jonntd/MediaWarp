@@ -104,7 +104,7 @@ func (c *configManager) RootDir() string {
 
 	dir, err := os.Getwd()
 	if err != nil {
-		fmt.Println("Failed to get working directory: %v", err)
+		fmt.Printf("Failed to get working directory: %v", err)
 	}
 	return dir
 
