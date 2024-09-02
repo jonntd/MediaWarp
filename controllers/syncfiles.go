@@ -360,7 +360,7 @@ func SyncFilesRouter(router *gin.Engine) {
 	router.POST("/verify", verifyAPIKey)
 	// Routes with API Key auth
 	router.GET("/syncfolder", SyncfolderHandler)
-	// router.POST("/Sync/*path", apiKeyAuth(), MediaFileSyncHandler)
-	router.POST("/Sync/*path", apiKeyAuth(), handleSyncFolder)
+	router.POST("/Sync/*path", apiKeyAuth(), MediaFileSyncHandler)
+	// router.POST("/Sync/*path", apiKeyAuth(), handleSyncFolder)
 
 }
