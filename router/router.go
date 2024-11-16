@@ -20,8 +20,8 @@ func InitRouter() *gin.Engine {
 	// ginR.Use(middleware.LogRawRequest())
 	DriveClient = _115.MustNew115DriveClient(config.Cookie)
 	controllers.TaskCron.Start()
-	// ginR.Static("/static", "./static")
-	ginR.StaticFS("/static", http.FS(staticFiles))
+	ginR.Static("/static", "./static")
+	// ginR.StaticFS("/static", http.FS(staticFiles))
 
 	ginR.Use(middleware.QueryCaseInsensitive())
 	ginR.Use(middleware.LogMiddleware())
