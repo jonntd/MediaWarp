@@ -93,9 +93,7 @@ dockers:
       - '--label=org.opencontainers.image.revision={{.FullCommit}}'
       - '--label=org.opencontainers.image.version={{.Version}}'
       - '--platform=linux/amd64'
-    files:  
-      - source: ./static/  
-        destination: /etc/media-warp/static/  
+
 
   - use: buildx
     goos: linux
@@ -120,9 +118,7 @@ dockers:
       - '--label=org.opencontainers.image.revision={{.FullCommit}}'
       - '--label=org.opencontainers.image.version={{.Version}}'
       - '--platform=linux/arm64'
-    files:  
-      - source: ./static/  
-        destination: /etc/media-warp/static/  
+
 
   - use: buildx
     goos: linux
@@ -148,6 +144,3 @@ dockers:
       - '--label=org.opencontainers.image.revision={{.FullCommit}}'
       - '--label=org.opencontainers.image.version={{.Version}}'
       - '--platform=linux/arm/v7'
-    files:  
-      - source: ./static/  
-        destination: /etc/media-warp/static/  
