@@ -5,6 +5,7 @@ import (
 	"MediaWarp/controllers"
 	"MediaWarp/core"
 	"MediaWarp/middleware"
+	"embed"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,13 +13,16 @@ import (
 
 var DriveClient *_115.DriveClient
 var config = core.GetConfig()
+var staticFiles embed.FS
 
 func InitRouter() *gin.Engine {
 	ginR := gin.New()
 	// ginR.Use(middleware.LogRawRequest())
 	DriveClient = _115.MustNew115DriveClient(config.Cookie)
 	controllers.TaskCron.Start()
-	ginR.Static("/static", "./static")
+	// ginR.Static("/static", "./static")
+	ginR.StaticFS("/static", http.FS(staticFiles))
+
 	ginR.Use(middleware.QueryCaseInsensitive())
 	ginR.Use(middleware.LogMiddleware())
 	controllers.TaskCronRouter(ginR)
