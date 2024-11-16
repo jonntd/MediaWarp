@@ -13,7 +13,7 @@ func make_config() {
 	remoteName := config.Remote
 	remoteType := config.Remote
 	cookie := config.Cookie
-	pacerMinSleep := config.PacerMinSleep
+	// pacerMinSleep := config.PacerMinSleep
 	cmdDelete := exec.Command("rclone", "config", "delete", remoteName)
 	if output, err := cmdDelete.CombinedOutput(); err != nil {
 		fmt.Printf("Failed to delete existing config: %s\nOutput: %s", err, string(output))
@@ -21,7 +21,7 @@ func make_config() {
 
 	cmd := exec.Command("rclone", "config", "create", remoteName, remoteType,
 		"cookie", cookie,
-		"pacer_min_sleep", pacerMinSleep,
+		// "pacer_min_sleep", pacerMinSleep,
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

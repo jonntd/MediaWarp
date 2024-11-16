@@ -95,7 +95,7 @@ func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 }
 
 func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
-	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--tpslimit", "2", "--update", "--fast-list", "--checkers", "2", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "2", "--multi-thread-streams", "2", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
+	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--tpslimit", "0.5", "--fast-list", "--checkers", "1", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "1", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -159,7 +159,7 @@ func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 }
 
 func createStrmFiles(sourceDir, remoteDest string, colonIndex int) error {
-	cmd := exec.Command("rclone", "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--transfers", "2", "--multi-thread-streams", "2", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--tpslimit", "2")
+	cmd := exec.Command("rclone", "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--checkers", "1", "--transfers", "1", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--tpslimit", "0.5")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
