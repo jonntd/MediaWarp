@@ -148,7 +148,7 @@
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
                 alert('Unauthorized: Please login again.');
-                window.location.href = "/static/login.html";
+                window.location.href = "static/login.html";
                 return;
             }
             const syncFolderUrl = `/syncfolder?apiKey=${encodeURIComponent(apiKey)}`;
@@ -160,7 +160,7 @@
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
                 alert('Unauthorized: Please login again.');
-                window.location.href = "/static/login.html";
+                window.location.href = "static/login.html";
                 return;
             }
 
@@ -188,7 +188,7 @@
         window.onload = function() {
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
-                window.location.href = "/static/login.html";
+                window.location.href = "static/login.html";
                 return;
             }
 
