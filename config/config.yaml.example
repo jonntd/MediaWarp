@@ -3,7 +3,7 @@ Port: 9000                                  # MideWarp 监听端口
 MediaServer:                                # 媒体服务器相关设置
   Type: Emby                                # 媒体服务器类型（可选选项：Emby、Jellyfin）
   ADDR: http://localhost:8096               # 媒体服务器地址
-  AUTH: 2eaxxxxxxxxxa8                      # 媒体服务器认证方式
+  AUTH: 99d7881538b149e6a97fe2546c7ebec1                      # 媒体服务器认证方式
 
 Logger:                                     # 日志设定
   AccessLogger:                             # 访问日志设定
@@ -16,7 +16,7 @@ Logger:                                     # 日志设定
 Web:                                        # Web 页面修改相关设置
   Enable: True                              # 总开关
   Custom: True                              # 是否加载自定义静态资源
-  Index: True                               # 是否从 custom 目录读取 index.html 文件 
+  Index: False                               # 是否从 custom 目录读取 index.html 文件 
   Head: |                                   # 是否添加自定义字段到 index.html 的头部中
     <script src="/MediaWarp/custom/emby-front-end-mod/actor-plus.js"></script>
     <script src="/MediaWarp/custom/emby-front-end-mod/emby-swiper.js"></script>
@@ -47,19 +47,15 @@ HTTPStrm:                                   # HTTPStrm 相关配置（Strm 文�
 
 AlistStrm:                                  # AlistStrm 相关配置（Strm 文件内容是 Alist 上文件的路径，目前仅支持适配 Alist V3）
   Enable: True                              # 是否启用 AlistStrm 重定向
-  TransCode: True                           # False：强制关闭转码 True：保持原有转码设置
+  TransCode: False                           # False：强制关闭转码 True：保持原有转码设置
   RawURL: False                             # Fasle：响应 Alist 服务器的直链（要求客户端可以访问到 Alist） True：直接响应 Alist 上游的真实链接（alist api 中的 raw_url 属性）
-  List:                                     # Alist 服务关配置列表
-    - ADDR: http://192.168.1.100:5244       # Alist 服务器地址
-      Username: admin                       # Alist 服务器账号
-      Password: adminadmin                  # Alist 服务器密码
+  List:       
+    - ADDR: 115      # Alist 服务器地址
+      Type: 115
+      Cookie:       # Alist 服务关配置列表
       PrefixList:                           # EmbyServer 中 Strm 文件的前缀（符合该前缀的 Strm 文件都会路由到该规则下）
-        - /media/strm/MyAlist               # 同一个 Alist 可以有多个前缀规则
+        - C:\Users\Admin\Documents\code\media\               # 同一个 Alist 可以有多个前缀规则
         - /mnt/cd2/strm
-    - ADDR: https://xiaoya.com              # 可以填写多个配置
-      Token: xxxxxxx                        # Token 优先级高于 Username 和 Password
-      PrefixList: 
-        - /media/strm
 
 Subtitle:                                   # 字体相关设置（仅 Emby 支持）
   Enable: True                              # 启用
