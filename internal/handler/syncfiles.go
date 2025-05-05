@@ -101,7 +101,7 @@ func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 
 func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
-	cmd := exec.Command(filepath.Join(config.RootDir(), "rclone"), "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--tpslimit", "0.5", "--fast-list", "--checkers", "2", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "2", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
+	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "10", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -166,7 +166,7 @@ func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 
 func createStrmFiles(sourceDir, remoteDest string, colonIndex int) error {
 	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
-	cmd := exec.Command(filepath.Join(config.RootDir(), "rclone"), "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--checkers", "2", "--transfers", "2", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--tpslimit", "0.5")
+	cmd := exec.Command("rclone", "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--checkers", "2", "--transfers", "2", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--tpslimit", "0.5")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -329,7 +329,7 @@ func SyncfolderHandler(ctx *gin.Context) {
 	if apiKey == config.MediaServer.AUTH {
 		// 运行rclone lsf命令获取目录列表
 		logging.Info("rclone", "lsf", "115:"+path, "--dirs-only")
-		cmd := exec.Command(filepath.Join(config.RootDir(), "rclone"), "lsf", "115:"+path, "--dirs-only")
+		cmd := exec.Command("rclone", "lsf", "115:"+path, "--dirs-only")
 		output, err := cmd.Output()
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, fmt.Sprintf("Error running rclone: %v", err))

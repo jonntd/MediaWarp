@@ -106,7 +106,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	make_config()
-
+	logging.Info("Environ ", os.Environ())
 	logging.Info("MediaWarp 监听端口：", config.Port)
 	ginR := router.InitRouter() // 路由初始化
 	logging.Info("MediaWarp 启动成功")
