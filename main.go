@@ -11,7 +11,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"encoding/json"
@@ -34,6 +36,42 @@ func init() {
 
 	fmt.Print(constants.LOGO)
 	fmt.Println(utils.Center(fmt.Sprintf(" MediaWarp %s ", config.Version().AppVersion), 71, "="))
+}
+
+func make_config() {
+	logging.Info("make rclone config file")
+	var configNotFoundMsg = "not found - using defaults"
+	cmd := exec.Command("./rclone", "listremotes")
+	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+	logging.Info("rclone config: " + outputStr)
+	if strings.Contains(outputStr, configNotFoundMsg) {
+		for _, alistStrmConfig := range config.AlistStrm.List {
+			logging.Info("alistStrmConfig.ADDR: " + alistStrmConfig.ADDR)
+			logging.Info("alistStrmConfig.Cookie: " + alistStrmConfig.Cookie)
+			logging.Info("alistStrmConfig.Type: " + alistStrmConfig.Type)
+			cmd := exec.Command("./rclone", "config", "create", alistStrmConfig.ADDR, alistStrmConfig.Type, "cookie", alistStrmConfig.Cookie)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				logging.Debug(fmt.Sprintf("Failed to execute command: %s\nOutput: %s", err, string(output)))
+			}
+			logging.Debug(fmt.Sprintf("Command output: %s", string(output)))
+			// rclone config reconnect 115:
+			cmd = exec.Command("./rclone", "lsf", string(alistStrmConfig.ADDR)+":")
+			output, err = cmd.CombinedOutput()
+			if err != nil {
+				logging.Debug(fmt.Sprintf("Failed to execute command: %s\nOutput: %s", err, string(output)))
+			}
+			logging.Debug(fmt.Sprintf("Command output: %s", string(output)))
+		}
+	}
+	if err != nil {
+		if _, ok := err.(*exec.Error); ok {
+			logging.Debug("rclone command not found or failed to start: %w", err)
+			return
+		}
+	}
+
 }
 
 func main() {
@@ -61,13 +99,13 @@ func main() {
 		logging.Error("媒体服务器处理器初始化失败：", err)
 		return
 	}
-
 	if isDebug {
 		logging.SetLevel(logrus.DebugLevel)
 		logging.Warning("已启用调试模式")
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
+	make_config()
 
 	logging.Info("MediaWarp 监听端口：", config.Port)
 	ginR := router.InitRouter() // 路由初始化
@@ -84,4 +122,5 @@ func main() {
 	case err := <-errChan:
 		logging.Error("MediaWarp 运行出错：", err)
 	}
+
 }

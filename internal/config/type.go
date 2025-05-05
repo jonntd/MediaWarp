@@ -14,9 +14,10 @@ type VersionInfo struct {
 
 // 上游媒体服务器相关设置
 type MediaServerSetting struct {
-	Type constants.MediaServerType // 媒体服务器类型
-	ADDR string                    // 地址
-	AUTH string                    // 认证授权KEY
+	Type   constants.MediaServerType // 媒体服务器类型
+	ADDR   string                    // 地址
+	AUTH   string                    // 认证授权KEY
+	Cookie string                    // Cookie
 }
 
 // 日志设置
@@ -66,6 +67,8 @@ type AlistSetting struct {
 	Password   string
 	Token      *string
 	PrefixList []string
+	Cookie     string
+	Type       string
 }
 
 // AlistStrm播放设置

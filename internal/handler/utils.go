@@ -30,12 +30,12 @@ func responseModifyCreater(proxy *httputil.ReverseProxy, modifyResponseFN func(r
 // 根据 Strm 文件路径识别 Strm 文件类型
 //
 // 返回 Strm 文件类型和一个可选配置
-func recgonizeStrmFileType(strmFilePath string) (constants.StrmFileType, any) {
+func recgonizeStrmFileType(strmFilePath string) (constants.StrmFileType, any, any) {
 	if config.HTTPStrm.Enable {
 		for _, prefix := range config.HTTPStrm.PrefixList {
 			if strings.HasPrefix(strmFilePath, prefix) {
 				logging.Debug(strmFilePath + " 成功匹配路径：" + prefix + "，Strm 类型：" + string(constants.HTTPStrm))
-				return constants.HTTPStrm, nil
+				return constants.HTTPStrm, nil, nil
 			}
 		}
 	}
@@ -44,13 +44,13 @@ func recgonizeStrmFileType(strmFilePath string) (constants.StrmFileType, any) {
 			for _, prefix := range alistStrmConfig.PrefixList {
 				if strings.HasPrefix(strmFilePath, prefix) {
 					logging.Debug(strmFilePath + " 成功匹配路径：" + prefix + "，Strm 类型：" + string(constants.AlistStrm) + "，AlistServer 地址：" + alistStrmConfig.ADDR)
-					return constants.AlistStrm, alistStrmConfig.ADDR
+					return constants.AlistStrm, prefix, alistStrmConfig.ADDR
 				}
 			}
 		}
 	}
 	logging.Debug(strmFilePath + " 未匹配任何路径，Strm 类型：" + string(constants.UnknownStrm))
-	return constants.UnknownStrm, nil
+	return constants.UnknownStrm, nil, nil
 }
 
 // 读取响应体

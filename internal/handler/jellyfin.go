@@ -104,7 +104,7 @@ func (jellyfinHandler *JellyfinHandler) ModifyPlaybackInfo(rw *http.Response) er
 			continue
 		}
 		item := itemResponse.Items[0]
-		strmFileType, opt := recgonizeStrmFileType(*item.Path)
+		strmFileType, opt, _ := recgonizeStrmFileType(*item.Path)
 		switch strmFileType {
 		case constants.HTTPStrm: // HTTPStrm 设置支持直链播放并且支持转码
 			if !config.HTTPStrm.TransCode {
@@ -204,7 +204,7 @@ func (jellyfinHandler *JellyfinHandler) VideosHandler(ctx *gin.Context) {
 		return
 	}
 
-	strmFileType, opt := recgonizeStrmFileType(*item.Path)
+	strmFileType, opt, _ := recgonizeStrmFileType(*item.Path)
 	for _, mediasource := range item.MediaSources {
 		if *mediasource.ID == mediaSourceID { // EmbyServer >= 4.9 返回的ID带有前缀mediasource_
 			switch strmFileType {

@@ -13,6 +13,7 @@ type RouterRegexps struct {
 	ModifyIndex          *regexp.Regexp // Web 首页
 	ModifyPlaybackInfo   *regexp.Regexp // 播放信息处理接口
 	ModifySubtitles      *regexp.Regexp // 字幕处理接口
+	StreamStrmHandler    *regexp.Regexp // 匹配 /emby/videos/{id}/stream.strm
 }
 
 type OthersRegexps struct {
@@ -26,6 +27,7 @@ var EmbyRegexp = &EmbyRegexps{
 		ModifyIndex:          regexp.MustCompile(`^/web/index.html$`),
 		ModifyPlaybackInfo:   regexp.MustCompile(`(?i)^(/emby)?/Items/\d+/PlaybackInfo$`),
 		ModifySubtitles:      regexp.MustCompile(`(?i)^(/emby)?/Videos/\d+/\w+/subtitles$`),
+		StreamStrmHandler:    regexp.MustCompile(`(?i)^(/emby)?/videos/\d+/stream\.strm$`),
 	},
 	Others: OthersRegexps{
 		VideoRedirectReg: regexp.MustCompile(`(?i)^(/emby)?/videos/(.*)/stream/(.*)`),
@@ -37,6 +39,7 @@ type JellyfinRouterRegexps struct {
 	ModifyIndex        *regexp.Regexp // Web 首页
 	ModifyPlaybackInfo *regexp.Regexp // 播放信息处理接口
 	ModifySubtitles    *regexp.Regexp // 字幕处理接口
+	StreamStrmHandler  *regexp.Regexp // 匹配 /emby/videos/{id}/stream.strm
 }
 type JellyfinRegexps struct {
 	Router JellyfinRouterRegexps
@@ -48,5 +51,6 @@ var JellyfinRegexp = &JellyfinRegexps{
 		ModifyIndex:        regexp.MustCompile(`^/web/$`),
 		ModifyPlaybackInfo: regexp.MustCompile(`^/Items/\w+$`),
 		ModifySubtitles:    regexp.MustCompile(`/Videos/\d+/\w+/subtitles$`),
+		StreamStrmHandler:  regexp.MustCompile(`(?i)^(/emby)?/videos/\d+/stream\.strm$`),
 	},
 }

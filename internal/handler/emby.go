@@ -1,10 +1,10 @@
 package handler
 
 import (
+	_115 "MediaWarp/115"
 	"MediaWarp/constants"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
-	"MediaWarp/internal/service"
 	"MediaWarp/internal/service/emby"
 	"MediaWarp/utils"
 	"bytes"
@@ -14,11 +14,56 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+type ApiResponse struct {
+	State   bool                `json:"state"`   // Indicates success or failure
+	Message string              `json:"message"` // Optional message
+	Code    int                 `json:"code"`    // Status code
+	Data    map[string]FileInfo `json:"data"`    // Map where keys are file IDs (strings) and values are FileInfo objects
+}
+
+// FileInfo represents the details of a single file.
+// The key for this object in the parent map (ApiResponse.Data) is the file ID.
+type FileInfo struct {
+	FileName string      `json:"file_name"` // Name of the file
+	FileSize int64       `json:"file_size"` // Size of the file in bytes (using int64 for potentially large files)
+	PickCode string      `json:"pick_code"` // File pick code (extraction code)
+	SHA1     string      `json:"sha1"`      // SHA1 hash of the file content
+	URL      DownloadURL `json:"url"`       // Object containing the download URL
+}
+type DownloadURL struct {
+	URL string `json:"url"` // The file download address
+}
+
+var DriveClient *_115.DriveClient
+var redirectURL string
+
+func init() {
+	// cookie := "UID=341794039_M1_1733655944; CID=6703a177cb0e92e9908d44a49e3032b2; SEID=a9420ed11bc9d9ac818e024086b17f5112dab42fa84c6e4669072aa009cb435b1eb50b836bba16573b75d50bf43e1e2bd034bb02b9c147347ff2734d; KID=c9416be503606bbcb5eb329520fe5c5d"
+	// DriveClient = _115.MustNew115DriveClient(cookie)
+}
+
+func convertToLinuxPath(windowsPath string) string {
+	linuxPath := strings.ReplaceAll(windowsPath, "\\", "/")
+	return linuxPath
+}
+
+func ensureLeadingSlash(alistPath string) string {
+	if !strings.HasPrefix(alistPath, "/") {
+		alistPath = "/" + alistPath // 不是以 / 开头，加上 /
+	}
+
+	alistPath = convertToLinuxPath(alistPath)
+	return alistPath
+}
 
 // Emby服务器处理器
 type EmbyServerHandler struct {
@@ -56,6 +101,10 @@ func NewEmbyServerHandler(addr string, apiKey string) (*EmbyServerHandler, error
 					&httputil.ReverseProxy{Director: embyServerHandler.proxy.Director},
 					embyServerHandler.ModifyBaseHtmlPlayer,
 				),
+			},
+			{
+				Regexp:  constants.EmbyRegexp.Router.StreamStrmHandler,
+				Handler: embyServerHandler.VideosHandler,
 			},
 		}
 
@@ -102,6 +151,8 @@ func (embyServerHandler *EmbyServerHandler) GetRegexpRouteRules() []RegexpRouteR
 // /Items/:itemId/PlaybackInfo
 // 强制将 HTTPStrm 设置为支持直链播放和转码、AlistStrm 设置为支持直链播放并且禁止转码
 func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response) error {
+	logging.Debug("=======  ModifyPlaybackInfo ======= ")
+
 	defer rw.Body.Close()
 	body, err := readBody(rw)
 	if err != nil {
@@ -123,7 +174,7 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 			continue
 		}
 		item := itemResponse.Items[0]
-		strmFileType, opt := recgonizeStrmFileType(*item.Path)
+		strmFileType, _, _ := recgonizeStrmFileType(*item.Path)
 		switch strmFileType {
 		case constants.HTTPStrm: // HTTPStrm 设置支持直链播放并且支持转码
 			if !config.HTTPStrm.TransCode {
@@ -166,20 +217,20 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 				logging.Info(*mediasource.Name, "保持原有转码设置")
 			}
 
-			if playbackInfoResponse.MediaSources[index].Size == nil {
-				alistServer, err := service.GetAlistServer(opt.(string))
-				if err != nil {
-					logging.Warning("获取 AlistServer 失败：", err)
-					continue
-				}
-				fsGetData, err := alistServer.FsGet(*mediasource.Path)
-				if err != nil {
-					logging.Warning("请求 FsGet 失败：", err)
-					continue
-				}
-				playbackInfoResponse.MediaSources[index].Size = &fsGetData.Size
-				logging.Info(*mediasource.Name, "设置文件大小为:", fsGetData.Size)
-			}
+			// if playbackInfoResponse.MediaSources[index].Size == nil {
+			// 	alistServer, err := service.GetAlistServer(opt.(string))
+			// 	if err != nil {
+			// 		logging.Warning("获取 AlistServer 失败：", err)
+			// 		continue
+			// 	}
+			// 	fsGetData, err := alistServer.FsGet(*mediasource.Path)
+			// 	if err != nil {
+			// 		logging.Warning("请求 FsGet 失败：", err)
+			// 		continue
+			// 	}
+			// 	playbackInfoResponse.MediaSources[index].Size = &fsGetData.Size
+			// 	logging.Info(*mediasource.Name, "设置文件大小为:", fsGetData.Size)
+			// }
 		}
 	}
 
@@ -197,6 +248,8 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 //
 // 支持播放本地视频、重定向 HttpStrm、AlistStrm
 func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
+	logging.Debug("======= VideosHandler ======= ")
+
 	if ctx.Request.Method == http.MethodHead { // 不额外处理 HEAD 请求
 		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 		logging.Debug("VideosHandler 不处理 HEAD 请求，转发至上游服务器")
@@ -204,6 +257,8 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 	}
 
 	orginalPath := ctx.Request.URL.Path
+	logging.Debug("orginalPath:", orginalPath)
+
 	matches := constants.EmbyRegexp.Others.VideoRedirectReg.FindStringSubmatch(orginalPath)
 	if len(matches) == 2 {
 		redirectPath := fmt.Sprintf("/videos/%s/stream", matches[0])
@@ -223,16 +278,14 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 		return
 	}
-
 	item := itemResponse.Items[0]
-
 	if !strings.HasSuffix(strings.ToLower(*item.Path), ".strm") { // 不是 Strm 文件
 		logging.Debug("播放本地视频：" + *item.Path + "，不进行处理")
 		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 		return
 	}
-
-	strmFileType, opt := recgonizeStrmFileType(*item.Path)
+	strmFileType, opt, srerveAdd := recgonizeStrmFileType(*item.Path)
+	logging.Debug("请求 strmFileType:", strmFileType)
 	for _, mediasource := range item.MediaSources {
 		if *mediasource.ID == mediaSourceID { // EmbyServer >= 4.9 返回的ID带有前缀mediasource_
 			switch strmFileType {
@@ -243,28 +296,126 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 				}
 				return
 			case constants.AlistStrm: // 无需判断 *mediasource.Container 是否以Strm结尾，当 AlistStrm 存储的位置有对应的文件时，*mediasource.Container 会被设置为文件后缀
-				alistServerAddr := opt.(string)
-				alistServer, err := service.GetAlistServer(alistServerAddr)
-				if err != nil {
-					logging.Warning("获取 AlistServer 失败：", err)
-					return
-				}
-				fsGetData, err := alistServer.FsGet(*mediasource.Path)
-				if err != nil {
-					logging.Warning("请求 FsGet 失败：", err)
-					return
-				}
-				var redirectURL string
-				if config.AlistStrm.RawURL {
-					redirectURL = fsGetData.RawURL
+				// alistServerAddr := opt.(string)
+				// alistServer, err := service.GetAlistServer(alistServerAddr)
+				// if err != nil {
+				// 	logging.Warning("获取 AlistServer 失败：", err)
+				// 	return
+				// }
+				// fsGetData, err := alistServer.FsGet(*mediasource.Path)
+				// if err != nil {
+				// 	logging.Warning("请求 FsGet 失败：", err)
+				// 	return
+				// }
+				// var redirectURL string
+				// if config.AlistStrm.RawURL {
+				// 	redirectURL = fsGetData.RawURL
+				// } else {
+				// 	redirectURL = fmt.Sprintf("%s/d%s", alistServerAddr, *mediasource.Path)
+				// 	if fsGetData.Sign != "" {
+				// 		redirectURL += "?sign=" + fsGetData.Sign
+				// 	}
+				// }
+
+				desiredPath := strings.Replace(*mediasource.Path, opt.(string), "", 1)
+				desiredPath = ensureLeadingSlash(desiredPath)
+				logging.Debug("请求 desiredPath:", desiredPath)
+				logging.Debug("请求 opt.(string):", opt.(string))
+
+				// Type 1
+				downloadurl := fmt.Sprintf("%s:%s", srerveAdd, desiredPath)
+				userAgent := fmt.Sprintf("%s", ctx.Request.Header.Get("User-Agent"))
+				logging.Debug("downloadurl:", downloadurl)
+				cacheKey := downloadurl + "|" + userAgent
+
+				// 尝试从缓存获取URL
+				cacheMutex.RLock()
+				cachedItem, exists := redirectURLCache[cacheKey]
+				cacheMutex.RUnlock()
+
+				// 检查缓存是否存在且未过期
+				if exists && time.Now().Before(cachedItem.ExpireTime) {
+					logging.Info("从缓存获取重定向URL：", cachedItem.URL)
+					redirectURL = cachedItem.URL
 				} else {
-					redirectURL = fmt.Sprintf("%s/d%s", alistServerAddr, *mediasource.Path)
-					if fsGetData.Sign != "" {
-						redirectURL += "?sign=" + fsGetData.Sign
+					// 缓存不存在或已过期，执行rclone命令获取URL
+					cmd := exec.CommandContext(ctx, "./rclone", "backend", "getdownloadurlua", downloadurl, userAgent)
+					var stdoutBuf, stderrBuf bytes.Buffer
+					cmd.Stdout = &stdoutBuf
+					cmd.Stderr = &stderrBuf
+					fmt.Printf("Running command: %s\n", cmd.String())
+					err := cmd.Run()
+					if err != nil {
+						logging.Warning("执行 rclone command 失败：", err)
+						return
 					}
+					logging.Info("stdoutBuf：", stdoutBuf.String())
+					redirectURL = strings.TrimSpace(stdoutBuf.String())
+					if redirectURL == "" {
+						return
+					}
+					// 将新获取的URL存入缓存
+					cacheMutex.Lock()
+					redirectURLCache[cacheKey] = CacheItem{
+						URL:        redirectURL,
+						ExpireTime: time.Now().Add(defaultCacheTime),
+					}
+					cacheMutex.Unlock()
+					logging.Info("缓存重定向URL，过期时间：", time.Now().Add(defaultCacheTime))
 				}
-				logging.Info("AlistStrm 重定向至：", redirectURL)
+				logging.Info("AlistStrm 重定向至：", fmt.Sprintf("==%s==", redirectURL))
 				ctx.Redirect(http.StatusFound, redirectURL)
+				// Type 2
+				// logging.Info("302重定向：", *mediasource.Path)
+				// files, err := DriveClient.GetFile(desiredPath)
+				// if err != nil {
+				// 	return
+				// }
+				// userAgent := ctx.Request.Header.Get("User-Agent")
+				// down_url, err := DriveClient.GetFileURL(files, userAgent)
+				// if err != nil {
+				// 	return
+				// }
+				// logging.Info("down_url：", down_url)
+
+				// Type 3
+				// 构建请求115 API获取下载链接
+				// client := &http.Client{}
+				// req, err := http.NewRequest("POST", "https://proapi.115.com/open/ufile/downurl",
+				// 	strings.NewReader("pick_code=cv6i4y9laun1ddxq3"))
+				// if err != nil {
+				// 	logging.Warning("创建请求失败:", err)
+				// 	return
+				// }
+
+				// // 设置请求头
+				// req.Header.Set("Authorization", "Bearer tszs.afb9ac7a16203862d639e17a881315cf.c70a71ce40efe186e0d84b6a5441ec9dff80219a94ca2efd932e1547978df049")
+				// req.Header.Set("User-Agent", ctx.Request.Header.Get("User-Agent"))
+				// req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+				// // 发送请求并处理响应
+				// res, err := client.Do(req)
+				// if err != nil {
+				// 	logging.Warning("请求失败:", err)
+				// 	return
+				// }
+				// defer res.Body.Close()
+
+				// // 解析响应
+				// var response ApiResponse
+				// if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+				// 	logging.Warning("解析响应失败:", err)
+				// 	return
+				// }
+
+				// // 获取下载URL并重定向
+				// for _, downInfo := range response.Data {
+				// 	if downInfo != (FileInfo{}) {
+				// 		logging.Info("获取到下载URL:", downInfo.URL.URL)
+				// 		ctx.Redirect(http.StatusFound, downInfo.URL.URL)
+				// 		return
+				// 	}
+				// }
 				return
 			case constants.UnknownStrm:
 				embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
@@ -362,3 +513,16 @@ func (embyServerHandler *EmbyServerHandler) ModifyIndex(rw *http.Response) error
 }
 
 var _ MediaServerHandler = (*EmbyServerHandler)(nil) // 确保 EmbyServerHandler 实现 MediaServerHandler 接口
+
+// 缓存项结构
+type CacheItem struct {
+	URL        string    // 缓存的URL
+	ExpireTime time.Time // 过期时间
+}
+
+// 缓存管理器
+var (
+	redirectURLCache = make(map[string]CacheItem) // 缓存映射表，键为downloadurl+userAgent
+	cacheMutex       = &sync.RWMutex{}            // 读写锁，保证并发安全
+	defaultCacheTime = 30 * time.Minute           // 默认缓存时间，可通过配置修改
+)
