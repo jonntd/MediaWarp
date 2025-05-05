@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rclone Web GUI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px; /* Smaller font size */
+            width: 100%;
+            max-width: 600px;
+            text-align: left; /* Left align */
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        li {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        a {
+            text-decoration: none;
+            color: #007bff;
+            font-weight: bold;
+            padding: 10px;
+            background-color: #ffffff;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+            flex-grow: 1;
+        }
+
+        a:hover {
+            background-color: #f1f1f1;
+        }
+
+        .sync-button {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .sync-button img {
+            width: 24px;
+            height: 24px;
+            transition: transform 0.3s ease;
+        }
+
+        .sync-button:hover img {
+            transform: scale(1.2);
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .nav-buttons button {
+            padding: 10px;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32%;
+        }
+
+        .nav-buttons button img {
+            width: 32px;
+            height: 32px;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-buttons button:hover img {
+            transform: scale(1.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-buttons">
+        <button onclick="goBack()">
+            <img src="https://cdn-icons-png.flaticon.com/512/545/545682.png" alt="Go Back">
+        </button>
+        <button onclick="goHome()">
+            <img src="https://cdn-icons-png.flaticon.com/512/1828/1828415.png" alt="Home">
+        </button>
+        <button onclick="goForward()">
+            <img src="https://cdn-icons-png.flaticon.com/512/545/545680.png" alt="Go Forward">
+        </button>
+    </div>
+
+    <h1>Browsing: {{.Path}}</h1>
+    <ul>
+        {{range .Folders}}
+        <li>
+            <button class="sync-button" onclick="syncFolder('{{$.Path}}{{.}}')">
+                <img src="https://cdn-icons-png.flaticon.com/512/1827/1827929.png" alt="Refresh">
+            </button>
+            <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=" id="folder-link-{{.}}">{{.}}</a>
+        </li>
+        {{else}}
+        <li>No directories found.</li>
+        {{end}}
+    </ul>
+
+    <script>
+        // Function to go back
+        function goBack() {
+            window.history.back();
+        }
+
+        // Function to go forward
+        function goForward() {
+            window.history.forward();
+        }
+
+        // Function to go home
+        function goHome() {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                alert('Unauthorized: Please login again.');
+                window.location.href = "/login";
+                return;
+            }
+            const syncFolderUrl = `/syncfolder?apiKey=${encodeURIComponent(apiKey)}`;
+            window.location.href = syncFolderUrl;
+        }
+
+        // Function to sync folder
+        function syncFolder(path) {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                alert('Unauthorized: Please login again.');
+                window.location.href = "/login";
+                return;
+            }
+
+            fetch('/Sync/' + path, {
+                method: 'POST',
+                headers: {
+                    'X-API-Key': apiKey,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Sync request sent successfully for: ' + path);
+                } else {
+                    alert('Failed to send sync request for: ' + path);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error sending sync request for: ' + path);
+            });
+        }
+
+        // Check if API Key is set on page load
+        window.onload = function() {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                window.location.href = "/login";
+                return;
+            }
+
+            // Add apiKey to all folder links
+            document.querySelectorAll('a[id^="folder-link-"]').forEach(link => {
+                link.href += encodeURIComponent(apiKey);
+            });
+        };
+    </script>
+</body>
+</html>

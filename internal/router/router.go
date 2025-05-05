@@ -7,6 +7,8 @@ import (
 	"MediaWarp/internal/logging"
 	"MediaWarp/internal/middleware"
 	"MediaWarp/static"
+	"html/template"
+	"io/fs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,19 +30,34 @@ func InitRouter() *gin.Engine {
 		logging.Info("客户端过滤中间件未启用")
 	}
 
-	mediawarpRouter := ginR.Group("/MediaWarp")
+	// 加载HTML模板
+	templateFS, err := fs.Sub(static.EmbeddedStaticAssets, "templates")
+	if err != nil {
+		logging.Error("加载HTML模板失败：", err)
+	} else {
+		templ := template.Must(template.New("").ParseFS(templateFS, "*.html"))
+		ginR.SetHTMLTemplate(templ)
+	}
+
+	// 添加静态文件服务
+	staticFS, err := fs.Sub(static.EmbeddedStaticAssets, "emby-crx/static")
+	if err != nil {
+		logging.Error("加载静态资源失败：", err)
+	} else {
+		ginR.StaticFS("/MediaWarp/static/emby-crx/static", http.FS(staticFS))
+	}
+
+	ginR.GET("/login", func(ctx *gin.Context) {
+		ctx.HTML(http.StatusOK, "login.html", gin.H{})
+	})
+	mediawarpRouter := ginR.GET("/page/:page", handler.HTMLPageHandler)
 	{
 		mediawarpRouter.Any("/version", func(ctx *gin.Context) {
 			ctx.JSON(http.StatusOK, config.Version())
 		})
-		if config.Web.Enable { // 启用 Web 页面修改相关设置
-			mediawarpRouter.StaticFS("/static", http.FS(static.EmbeddedStaticAssets))
-			if config.Web.Custom { // 用户自定义静态资源目录
-				mediawarpRouter.Static("/custom", config.CostomDir())
-			}
-		}
-	}
 
+	}
+	handler.SyncFilesRouter(ginR)
 	ginR.NoRoute(RegexpRouterHandler)
 	return ginR
 }

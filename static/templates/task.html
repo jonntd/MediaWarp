@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Scheduler</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        input, select, button {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-family: inherit;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .task-list {
+            margin-top: 30px;
+        }
+
+        .task-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .task-list th, .task-list td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .task-list th {
+            background-color: #f8f9fa;
+        }
+
+        .task-actions button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .task-actions .delete-btn {
+            background-color: #dc3545;
+        }
+
+        .task-actions .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Task Scheduler</h1>
+
+        <form id="taskForm">
+            <label for="name">Task Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="schedule">Cron Expression: 0 0 0 1 1 *</label>
+            <input type="text" id="schedule" name="schedule" placeholder="0 0 0 1 1 *" required>
+
+            <label for="function">Select Function:</label>
+            <select id="function" name="function" required>
+                <option value="func1">customFunction1</option>
+                <option value="func2">customFunction2</option>
+                <option value="func3">customFunction3</option>
+            </select>
+
+            <button type="submit">Save Task</button>
+        </form>
+
+        <div class="task-list">
+            <h2>Task List</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Schedule</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody">
+                    <!-- Task rows will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const taskForm = document.getElementById('taskForm');
+            const taskTableBody = document.getElementById('taskTableBody');
+
+            // Check if API Key is set on page load
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                alert('Unauthorized: Please login again.');
+                window.location.href = "/static/login.html";
+                return;
+            }
+
+            // Fetch and display tasks when page loads
+            fetchTasks(apiKey);
+
+            taskForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const taskData = {
+                    name: document.getElementById('name').value,
+                    schedule: document.getElementById('schedule').value,
+                    function: document.getElementById('function').value
+                };
+
+                fetch('/task', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify(taskData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(`Task ${data.task_name} has been saved`);
+                    taskForm.reset();
+                    fetchTasks(apiKey);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+
+            function fetchTasks(apiKey) {
+                fetch('/tasks', {
+                    headers: {
+                        'X-API-Key': apiKey
+                    }
+                })
+                .then(response => response.json())
+                .then(tasks => {
+                    taskTableBody.innerHTML = '';
+                    tasks.forEach(task => {
+                        const row = document.createElement('tr');
+
+                        const nameCell = document.createElement('td');
+                        nameCell.textContent = task.name;
+                        row.appendChild(nameCell);
+
+                        const scheduleCell = document.createElement('td');
+                        scheduleCell.textContent = task.schedule;
+                        row.appendChild(scheduleCell);
+
+                        const actionsCell = document.createElement('td');
+                        actionsCell.className = 'task-actions';
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.className = 'delete-btn';
+                        deleteButton.onclick = () => deleteTask(task.name, apiKey);
+                        actionsCell.appendChild(deleteButton);
+
+                        row.appendChild(actionsCell);
+                        taskTableBody.appendChild(row);
+                    });
+                });
+            }
+
+            function deleteTask(taskName, apiKey) {
+                if (confirm(`Are you sure you want to delete the task "${taskName}"?`)) {
+                    fetch(`/task/${taskName}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-API-Key': apiKey
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(`Task ${data.task_name} has been deleted`);
+                        fetchTasks(apiKey);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

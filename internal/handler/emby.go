@@ -339,7 +339,7 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 					redirectURL = cachedItem.URL
 				} else {
 					// 缓存不存在或已过期，执行rclone命令获取URL
-					cmd := exec.CommandContext(ctx, "./rclone", "backend", "getdownloadurlua", downloadurl, userAgent)
+					cmd := exec.CommandContext(ctx, "rclone", "backend", "getdownloadurlua", downloadurl, userAgent)
 					var stdoutBuf, stderrBuf bytes.Buffer
 					cmd.Stdout = &stdoutBuf
 					cmd.Stderr = &stderrBuf

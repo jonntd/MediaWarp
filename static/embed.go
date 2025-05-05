@@ -24,4 +24,5 @@ import (
 //go:embed jellyfin-crx/static/js/jquery-3.6.0.min.js
 //go:embed jellyfin-crx/static/js/md5.min.js
 //go:embed jellyfin-crx/content/main.js
+//go:embed templates/*.html
 var EmbeddedStaticAssets embed.FS
