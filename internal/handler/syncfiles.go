@@ -57,7 +57,14 @@ var taskManager = NewTaskManager() // 定义全局任务管理器，只允许一
 
 func MediaFileSyncHandler(ctx *gin.Context) {
 	fullPath := ctx.Param("path")
-	logging.Debug(fullPath)
+	serverAddr := ctx.GetHeader("X-Alist-Server")
+	prefixPath := ctx.GetHeader("X-Prefix-Path")
+	sourceDir := serverAddr + ":" + fullPath
+
+	logging.Infof("sourceDirt: %s", sourceDir)
+	logging.Infof("remoteDest: %s", prefixPath)
+	logging.Infof("serverAddr:  %s", serverAddr)
+	logging.Infof("fullPath:  %s", fullPath)
 	// if ctx.Request.Header.Get("Emby-Token") != config.ApiKey {
 	// 	ctx.JSON(401, gin.H{
 	// 		"message": "error",
@@ -70,15 +77,33 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 		"message": "success",
 		"path":    fullPath})
 
-	sourceDir := config.AlistStrm.List[0].ADDR + ":" + fullPath
+	// 获取服务器地址，默认使用第一个
+	if serverAddr == "" && len(config.AlistStrm.List) > 0 {
+		serverAddr = config.AlistStrm.List[0].ADDR
+	}
 
-	fmt.Println("sourceDirt:", sourceDir)
-	fmt.Println("remoteDest:", config.AlistStrm.List[0].PrefixList[0])
+	// 查找对应的服务器配置
+	var serverConfig *config.AlistSetting
+	for _, server := range config.AlistStrm.List {
+		if server.ADDR == serverAddr {
+			serverConfig = &server
+			break
+		}
+	}
+
+	if serverConfig == nil {
+		logging.Error("未找到服务器配置:", serverAddr)
+		return
+	}
+
+	// 获取前缀路径，默认使用第一个
+	if prefixPath == "" && len(serverConfig.PrefixList) > 0 {
+		prefixPath = serverConfig.PrefixList[0]
+	}
 
 	taskManager.RunTask(func() {
-		syncAndCreateEmptyFiles(sourceDir, config.AlistStrm.List[0].PrefixList[0])
+		syncAndCreateEmptyFiles(sourceDir, prefixPath)
 	})
-
 }
 func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 	colonIndex := strings.Index(sourceDir, ":")
@@ -101,6 +126,9 @@ func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 
 func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
+	fmt.Println("sourceDirt:", sourceDir)
+	fmt.Println("remoteDest:", remoteDest)
+
 	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "10", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
 
 	stdout, err := cmd.StdoutPipe()
@@ -322,14 +350,30 @@ func SyncfolderHandler(ctx *gin.Context) {
 	apiKey := ctx.Query("apikey")
 	path := ctx.Query("path")
 	serverAddr := ctx.Query("server")
-	
+	prefixPath := ctx.Query("prefix")
+
 	if path == "" {
 		path = ""
 	}
-	
+
 	// 默认使用第一个服务器
 	if serverAddr == "" && len(config.AlistStrm.List) > 0 {
 		serverAddr = config.AlistStrm.List[0].ADDR
+	}
+
+	// 查找对应的服务器配置
+	// 由于serverConfig在后续代码中被使用，这里删除变量声明，直接在for循环中使用
+	var prefixList []string
+	for _, server := range config.AlistStrm.List {
+		if server.ADDR == serverAddr {
+			prefixList = server.PrefixList
+			break
+		}
+	}
+
+	// 默认使用第一个前缀路径
+	if prefixPath == "" && len(prefixList) > 0 {
+		prefixPath = prefixList[0]
 	}
 
 	var folders []string
@@ -358,6 +402,8 @@ func SyncfolderHandler(ctx *gin.Context) {
 		"Folders":       folders,
 		"Servers":       config.AlistStrm.List,
 		"CurrentServer": serverAddr,
+		"PrefixList":    prefixList,
+		"CurrentPrefix": prefixPath,
 	})
 }
 

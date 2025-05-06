@@ -104,13 +104,13 @@
             transform: scale(1.2);
         }
         
-        .server-selector {
+        .server-selector, .prefix-selector {
             width: 100%;
             max-width: 600px;
             margin-bottom: 20px;
         }
         
-        .server-selector select {
+        .server-selector select, .prefix-selector select {
             width: 100%;
             padding: 10px;
             border-radius: 5px;
@@ -137,6 +137,14 @@
         <select id="alist-server" onchange="changeServer()">
             {{range .Servers}}
             <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}} - {{.ADDR}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <div class="prefix-selector">
+        <select id="prefix-path">
+            {{range .PrefixList}}
+            <option value="{{.}}" {{if eq . $.CurrentPrefix}}selected{{end}}>{{.}}</option>
             {{end}}
         </select>
     </div>
@@ -201,13 +209,15 @@
             }
             
             const server = document.getElementById('alist-server').value;
+            const prefix = document.getElementById('prefix-path').value;
 
             fetch('/Sync/' + path, {
                 method: 'POST',
                 headers: {
                     'X-API-Key': apiKey,
                     'Content-Type': 'application/json',
-                    'X-Alist-Server': server
+                    'X-Alist-Server': server,
+                    'X-Prefix-Path': prefix
                 },
             })
             .then(response => {
