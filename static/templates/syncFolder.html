@@ -3,207 +3,547 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rclone Web GUI</title>
+    <title>MediaWarp - 文件同步</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --text-color: #333;
+            --text-light: #666;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        /* 暗黑模式变量 */
+        .dark-mode {
+            --primary-color: #4cc9f0;
+            --secondary-color: #4895ef;
+            --accent-color: #3f37c9;
+            --text-color: #e0e0e0;
+            --text-light: #b0b0b0;
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --border-color: #333;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
-            padding: 20px;
+            padding: 0;
             display: flex;
-            justify-content: center;
-            align-items: center;
             flex-direction: column;
             min-height: 100vh;
+            transition: var(--transition);
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 18px; /* Smaller font size */
+        .container {
             width: 100%;
-            max-width: 600px;
-            text-align: left; /* Left align */
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
         }
 
-        ul {
-            list-style-type: none;
-            padding: 0;
-            width: 100%;
-            max-width: 600px;
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 0;
+            box-shadow: var(--shadow);
+            position: relative;
+            z-index: 10;
         }
 
-        li {
-            margin: 8px 0;
+        .header-content {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-        }
-
-        a {
-            text-decoration: none;
-            color: #007bff;
-            font-weight: bold;
-            padding: 10px;
-            background-color: #ffffff;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-            flex-grow: 1;
-        }
-
-        a:hover {
-            background-color: #f1f1f1;
-        }
-
-        .sync-button {
-            background-color: transparent;
-            border: none;
-            cursor: pointer;
-            margin-right: 10px;
-            padding: 0;
-            display: flex;
             align-items: center;
         }
 
-        .sync-button img {
-            width: 24px;
-            height: 24px;
-            transition: transform 0.3s ease;
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
         }
 
-        .sync-button:hover img {
-            transform: scale(1.2);
+        .theme-toggle {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: var(--transition);
+        }
+
+        .theme-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.2);
         }
 
         .nav-buttons {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 20px;
-            width: 100%;
-            max-width: 600px;
+            margin: 20px 0;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: var(--shadow);
         }
 
-        .nav-buttons button {
-            padding: 10px;
+        .nav-button {
             background-color: transparent;
             border: none;
+            color: var(--text-color);
+            padding: 10px 15px;
+            border-radius: 8px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 32%;
+            transition: var(--transition);
+            font-weight: 500;
         }
 
-        .nav-buttons button img {
-            width: 32px;
-            height: 32px;
-            transition: transform 0.3s ease;
+        .nav-button i {
+            margin-right: 8px;
         }
 
-        .nav-buttons button:hover img {
-            transform: scale(1.2);
+        .nav-button:hover {
+            background-color: var(--primary-color);
+            color: white;
         }
-        
-        .server-selector, .prefix-selector {
-            width: 100%;
-            max-width: 600px;
+
+        .selectors {
             margin-bottom: 20px;
         }
-        
-        .server-selector select, .prefix-selector select {
+
+        .selector-group {
+            margin-bottom: 15px;
+        }
+
+        .selector-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+
+        select {
             width: 100%;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            background-color: #fff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            color: var(--text-color);
             font-size: 14px;
+            transition: var(--transition);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 16px;
+        }
+
+        .dark-mode select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e0e0e0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.3);
+        }
+
+        .path-info {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+        }
+
+        .path-info i {
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+
+        .path-text {
+            font-size: 16px;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .folder-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .folder-item {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            overflow: hidden;
+        }
+
+        .folder-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .folder-content {
+            display: flex;
+            align-items: center;
+        }
+
+        .sync-button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .sync-button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .sync-button i {
+            font-size: 1.2rem;
+        }
+
+        .folder-link {
+            text-decoration: none;
+            color: var(--text-color);
+            padding: 15px 20px;
+            display: block;
+            flex-grow: 1;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .folder-link:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .folder-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .folder-link i {
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 30px;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            color: var(--text-light);
+        }
+
+        .empty-message i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: var(--border-color);
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 通知样式 */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            box-shadow: var(--shadow);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification i {
+            margin-right: 10px;
+        }
+
+        .notification.success {
+            background-color: var(--success-color);
+        }
+
+        .notification.error {
+            background-color: var(--error-color);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .nav-buttons {
+                flex-wrap: wrap;
+            }
+
+            .nav-button {
+                flex: 1 0 30%;
+                margin-bottom: 10px;
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+
+            .folder-content {
+                flex-direction: column;
+            }
+
+            .sync-button {
+                width: 100%;
+                height: 40px;
+            }
+
+            .folder-link {
+                width: 100%;
+                padding: 12px 15px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="nav-buttons">
-        <button onclick="goBack()">
-            <img src="https://cdn-icons-png.flaticon.com/512/545/545680.png" alt="Go Back">
-        </button>
-        <button onclick="goHome()">
-            <img src="https://cdn-icons-png.flaticon.com/512/1828/1828415.png" alt="Home">
-        </button>
-        <button onclick="goForward()">
-            <img src="https://cdn-icons-png.flaticon.com/512/545/545682.png" alt="Go Forward">
-        </button>
+    <div class="loading">
+        <div class="loading-spinner"></div>
     </div>
 
-    <div class="server-selector">
-        <select id="alist-server" onchange="changeServer()">
-            {{range .Servers}}
-            <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}} - {{.ADDR}}</option>
-            {{end}}
-        </select>
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notification-message"></span>
     </div>
 
-    <div class="prefix-selector">
-        <select id="prefix-path">
-            {{range .PrefixList}}
-            <option value="{{.}}" {{if eq . $.CurrentPrefix}}selected{{end}}>{{.}}</option>
-            {{end}}
-        </select>
-    </div>
-
-    <h1>Browsing: {{.Path}}</h1>
-    <ul>
-        {{range .Folders}}
-        <li>
-            <button class="sync-button" onclick="syncFolder('{{$.Path}}{{.}}')">
-                <img src="https://cdn-icons-png.flaticon.com/512/1827/1827929.png" alt="Refresh">
+    <header>
+        <div class="container header-content">
+            <h1 class="app-title">MediaWarp 文件同步</h1>
+            <button class="theme-toggle" id="theme-toggle">
+                <i class="fas fa-moon"></i>
             </button>
-            <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=&server={{$.CurrentServer}}" id="folder-link-{{.}}">{{.}}</a>
-        </li>
-        {{else}}
-        <li>No directories found.</li>
-        {{end}}
-    </ul>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="nav-buttons">
+            <button class="nav-button" onclick="goBack()">
+                <i class="fas fa-arrow-left"></i> 返回
+            </button>
+            <button class="nav-button" onclick="goHome()">
+                <i class="fas fa-home"></i> 首页
+            </button>
+            <button class="nav-button" onclick="goForward()">
+                <i class="fas fa-arrow-right"></i> 前进
+            </button>
+        </div>
+
+        <div class="selectors">
+            <div class="selector-group">
+                <label class="selector-label" for="alist-server">服务器</label>
+                <select id="alist-server" onchange="changeServer()">
+                    {{range .Servers}}
+                    <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}} - {{.ADDR}}</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div class="selector-group">
+                <label class="selector-label" for="prefix-path">前缀路径</label>
+                <select id="prefix-path">
+                    {{range .PrefixList}}
+                    <option value="{{.}}" {{if eq . $.CurrentPrefix}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+        </div>
+
+        <div class="path-info">
+            <i class="fas fa-folder-open"></i>
+            <div class="path-text">{{.Path}}</div>
+        </div>
+
+        <ul class="folder-list">
+            {{range .Folders}}
+            <li class="folder-item">
+                <div class="folder-content">
+                    <button class="sync-button" onclick="syncFolder('{{$.Path}}{{.}}')">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=&server={{$.CurrentServer}}" class="folder-link" id="folder-link-{{.}}">
+                        <i class="fas fa-folder"></i> {{.}}
+                    </a>
+                </div>
+            </li>
+            {{else}}
+            <li class="empty-message">
+                <i class="fas fa-folder-open"></i>
+                <p>没有找到目录</p>
+            </li>
+            {{end}}
+        </ul>
+    </div>
 
     <script>
-        // Function to go back
+        // 主题切换功能
+        const themeToggle = document.getElementById('theme-toggle');
+        const icon = themeToggle.querySelector('i');
+        
+        // 检查本地存储中的主题设置
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            
+            if (document.body.classList.contains('dark-mode')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+                localStorage.setItem('darkMode', 'true');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+                localStorage.setItem('darkMode', 'false');
+            }
+        });
+
+        // 显示通知函数
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const notificationMessage = document.getElementById('notification-message');
+            const icon = notification.querySelector('i');
+            
+            notification.className = 'notification';
+            notification.classList.add(type);
+            
+            if (type === 'success') {
+                icon.className = 'fas fa-check-circle';
+            } else {
+                icon.className = 'fas fa-exclamation-circle';
+            }
+            
+            notificationMessage.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 显示加载动画
+        function showLoading() {
+            document.querySelector('.loading').style.display = 'flex';
+        }
+
+        // 隐藏加载动画
+        function hideLoading() {
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        // 导航函数
         function goBack() {
             window.history.back();
         }
 
-        // Function to go forward
         function goForward() {
             window.history.forward();
         }
 
-        // Function to go home
         function goHome() {
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
-                alert('Unauthorized: Please login again.');
+                showNotification('未授权：请重新登录', 'error');
                 window.location.href = "/login";
                 return;
             }
+            showLoading();
             const syncFolderUrl = `/syncfolder?apiKey=${encodeURIComponent(apiKey)}`;
             window.location.href = syncFolderUrl;
         }
 
-        // Function to change server
+        // 更改服务器函数
         function changeServer() {
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
-                alert('Unauthorized: Please login again.');
+                showNotification('未授权：请重新登录', 'error');
                 window.location.href = "/login";
                 return;
             }
+            showLoading();
             const server = document.getElementById('alist-server').value;
             const path = "{{.Path}}";
             window.location.href = `/syncfolder?path=${path}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`;
         }
 
-        // Function to sync folder
+        // 同步文件夹函数
         function syncFolder(path) {
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
-                alert('Unauthorized: Please login again.');
+                showNotification('未授权：请重新登录', 'error');
                 window.location.href = "/login";
                 return;
             }
@@ -211,6 +551,7 @@
             const server = document.getElementById('alist-server').value;
             const prefix = document.getElementById('prefix-path').value;
 
+            showLoading();
             fetch('/Sync/' + path, {
                 method: 'POST',
                 headers: {
@@ -221,19 +562,21 @@
                 },
             })
             .then(response => {
+                hideLoading();
                 if (response.ok) {
-                    alert('Sync request sent successfully for: ' + path);
+                    showNotification(`成功发送同步请求：${path}`, 'success');
                 } else {
-                    alert('Failed to send sync request for: ' + path);
+                    showNotification(`发送同步请求失败：${path}`, 'error');
                 }
             })
             .catch(error => {
+                hideLoading();
                 console.error('Error:', error);
-                alert('Error sending sync request for: ' + path);
+                showNotification(`发送同步请求出错：${path}`, 'error');
             });
         }
 
-        // Check if API Key is set on page load
+        // 页面加载时检查 API Key
         window.onload = function() {
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
@@ -241,7 +584,7 @@
                 return;
             }
 
-            // Add apiKey to all folder links
+            // 为所有文件夹链接添加 apiKey
             document.querySelectorAll('a[id^="folder-link-"]').forEach(link => {
                 const href = link.href;
                 const serverParam = href.includes('server=') ? '' : `&server=${encodeURIComponent(document.getElementById('alist-server').value)}`;
