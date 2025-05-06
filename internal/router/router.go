@@ -39,24 +39,38 @@ func InitRouter() *gin.Engine {
 		ginR.SetHTMLTemplate(templ)
 	}
 
-	// 添加静态文件服务
-	staticFS, err := fs.Sub(static.EmbeddedStaticAssets, "emby-crx/static")
-	if err != nil {
-		logging.Error("加载静态资源失败：", err)
-	} else {
-		ginR.StaticFS("/MediaWarp/static/emby-crx/static", http.FS(staticFS))
-	}
-
-	ginR.GET("/login", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusOK, "login.html", gin.H{})
-	})
-	mediawarpRouter := ginR.GET("/page/:page", handler.HTMLPageHandler)
+	mediawarpRouter := ginR.Group("/MediaWarp")
 	{
+
 		mediawarpRouter.Any("/version", func(ctx *gin.Context) {
 			ctx.JSON(http.StatusOK, config.Version())
 		})
+		if config.Web.Enable { // 启用 Web 页面修改相关设置
+			mediawarpRouter.StaticFS("/static", http.FS(static.EmbeddedStaticAssets))
+			if config.Web.Custom { // 用户自定义静态资源目录
+				mediawarpRouter.Static("/custom", config.CostomDir())
+			}
+		}
 
 	}
+	ginR.GET("/login", func(ctx *gin.Context) {
+		ctx.HTML(http.StatusOK, "login.html", gin.H{})
+	})
+	// // 添加静态文件服务
+	// staticFS, err := fs.Sub(static.EmbeddedStaticAssets, "emby-crx/static")
+	// if err != nil {
+	// 	logging.Error("加载静态资源失败：", err)
+	// } else {
+	// 	ginR.StaticFS("/MediaWarp/static/emby-crx/static", http.FS(staticFS))
+	// }
+
+	// mediawarpRouter := ginR.GET("/page/:page", handler.HTMLPageHandler)
+	// {
+	// 	mediawarpRouter.Any("/version", func(ctx *gin.Context) {
+	// 		ctx.JSON(http.StatusOK, config.Version())
+	// 	})
+
+	// }
 	handler.SyncFilesRouter(ginR)
 	ginR.NoRoute(RegexpRouterHandler)
 	return ginR
