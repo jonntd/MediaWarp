@@ -103,6 +103,21 @@
         .nav-buttons button:hover img {
             transform: scale(1.2);
         }
+        
+        .server-selector {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+        
+        .server-selector select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -118,6 +133,14 @@
         </button>
     </div>
 
+    <div class="server-selector">
+        <select id="alist-server" onchange="changeServer()">
+            {{range .Servers}}
+            <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}} - {{.ADDR}}</option>
+            {{end}}
+        </select>
+    </div>
+
     <h1>Browsing: {{.Path}}</h1>
     <ul>
         {{range .Folders}}
@@ -125,7 +148,7 @@
             <button class="sync-button" onclick="syncFolder('{{$.Path}}{{.}}')">
                 <img src="https://cdn-icons-png.flaticon.com/512/1827/1827929.png" alt="Refresh">
             </button>
-            <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=" id="folder-link-{{.}}">{{.}}</a>
+            <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=&server={{$.CurrentServer}}" id="folder-link-{{.}}">{{.}}</a>
         </li>
         {{else}}
         <li>No directories found.</li>
@@ -155,6 +178,19 @@
             window.location.href = syncFolderUrl;
         }
 
+        // Function to change server
+        function changeServer() {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                alert('Unauthorized: Please login again.');
+                window.location.href = "/login";
+                return;
+            }
+            const server = document.getElementById('alist-server').value;
+            const path = "{{.Path}}";
+            window.location.href = `/syncfolder?path=${path}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`;
+        }
+
         // Function to sync folder
         function syncFolder(path) {
             const apiKey = localStorage.getItem('apiKey');
@@ -163,12 +199,15 @@
                 window.location.href = "/login";
                 return;
             }
+            
+            const server = document.getElementById('alist-server').value;
 
             fetch('/Sync/' + path, {
                 method: 'POST',
                 headers: {
                     'X-API-Key': apiKey,
                     'Content-Type': 'application/json',
+                    'X-Alist-Server': server
                 },
             })
             .then(response => {
@@ -194,7 +233,9 @@
 
             // Add apiKey to all folder links
             document.querySelectorAll('a[id^="folder-link-"]').forEach(link => {
-                link.href += encodeURIComponent(apiKey);
+                const href = link.href;
+                const serverParam = href.includes('server=') ? '' : `&server=${encodeURIComponent(document.getElementById('alist-server').value)}`;
+                link.href = href.replace('apiKey=', `apiKey=${encodeURIComponent(apiKey)}`) + serverParam;
             });
         };
     </script>

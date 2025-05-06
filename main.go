@@ -41,7 +41,7 @@ func init() {
 func make_config() {
 	logging.Info("make rclone config file")
 	var configNotFoundMsg = "not found - using defaults"
-	cmd := exec.Command("./rclone", "listremotes")
+	cmd := exec.Command("rclone", "listremotes")
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 	logging.Info("rclone config: " + outputStr)
@@ -50,14 +50,14 @@ func make_config() {
 			logging.Info("alistStrmConfig.ADDR: " + alistStrmConfig.ADDR)
 			logging.Info("alistStrmConfig.Cookie: " + alistStrmConfig.Cookie)
 			logging.Info("alistStrmConfig.Type: " + alistStrmConfig.Type)
-			cmd := exec.Command("./rclone", "config", "create", alistStrmConfig.ADDR, alistStrmConfig.Type, "cookie", alistStrmConfig.Cookie)
+			cmd := exec.Command("rclone", "config", "create", alistStrmConfig.ADDR, alistStrmConfig.Type, "cookie", alistStrmConfig.Cookie)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				logging.Debug(fmt.Sprintf("Failed to execute command: %s\nOutput: %s", err, string(output)))
 			}
 			logging.Debug(fmt.Sprintf("Command output: %s", string(output)))
 			// rclone config reconnect 115:
-			cmd = exec.Command("./rclone", "lsf", string(alistStrmConfig.ADDR)+":")
+			cmd = exec.Command("rclone", "lsf", string(alistStrmConfig.ADDR)+":")
 			output, err = cmd.CombinedOutput()
 			if err != nil {
 				logging.Debug(fmt.Sprintf("Failed to execute command: %s\nOutput: %s", err, string(output)))

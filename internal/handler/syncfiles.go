@@ -321,15 +321,22 @@ func verifyAPIKey(c *gin.Context) {
 func SyncfolderHandler(ctx *gin.Context) {
 	apiKey := ctx.Query("apikey")
 	path := ctx.Query("path")
+	serverAddr := ctx.Query("server")
+	
 	if path == "" {
 		path = ""
+	}
+	
+	// 默认使用第一个服务器
+	if serverAddr == "" && len(config.AlistStrm.List) > 0 {
+		serverAddr = config.AlistStrm.List[0].ADDR
 	}
 
 	var folders []string
 	if apiKey == config.MediaServer.AUTH {
 		// 运行rclone lsf命令获取目录列表
-		logging.Info("rclone", "lsf", "115:"+path, "--dirs-only")
-		cmd := exec.Command("rclone", "lsf", "115:"+path, "--dirs-only")
+		logging.Info("rclone", "lsf", serverAddr+":"+path, "--dirs-only")
+		cmd := exec.Command("rclone", "lsf", serverAddr+":"+path, "--dirs-only")
 		output, err := cmd.Output()
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, fmt.Sprintf("Error running rclone: %v", err))
@@ -347,8 +354,10 @@ func SyncfolderHandler(ctx *gin.Context) {
 
 	// 使用gin的HTML方法渲染模板
 	ctx.HTML(http.StatusOK, "syncFolder.html", gin.H{
-		"Path":    path,
-		"Folders": folders,
+		"Path":          path,
+		"Folders":       folders,
+		"Servers":       config.AlistStrm.List,
+		"CurrentServer": serverAddr,
 	})
 }
 
