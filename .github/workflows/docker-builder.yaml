@@ -1,6 +1,8 @@
 name: "docker builder"
 on:
   push:
+    branches:
+      - main
     tags:
       - v*
 jobs:
@@ -17,6 +19,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
         with:
+          submodules: true
           fetch-depth: 0
 
       # https://github.com/marketplace/actions/setup-go-environment
