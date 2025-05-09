@@ -1,4 +1,4 @@
-name: "Release a tag"
+name: "docker builder"
 on:
   push:
     tags:
