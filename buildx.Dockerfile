@@ -27,7 +27,7 @@ COPY --from=rclone /usr/bin/rclone /usr/bin/
 COPY media-warp /
 RUN chmod +x /media-warp
 ENV GIN_MODE=release
-VOLUME ["/config", "/logs", "/custom"]
+VOLUME ["/config", "/logs", "/custom", "/media"]
 
 ENTRYPOINT ["/media-warp"]
 EXPOSE 9096
