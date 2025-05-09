@@ -1,21 +1,21 @@
 version: '3.8'
 services:
-  cloudnas:
-    image: cloudnas/clouddrive2
-    container_name: clouddrive2
-    environment:
-      - TZ=Asia/Shanghai
-      - CLOUDDRIVE_HOME=/Config
-    volumes:
-      - /data/media-server/cloud2/CloudNAS:/CloudNAS:shared
-      - /data/media-server/cloud2/Config:/Config
-    devices:
-      - /dev/fuse:/dev/fuse
-    ports:
-      - "19798:19798"
-    restart: unless-stopped
-    pid: "host"
-    privileged: true
+  # cloudnas:
+  #   image: cloudnas/clouddrive2
+  #   container_name: clouddrive2
+  #   environment:
+  #     - TZ=Asia/Shanghai
+  #     - CLOUDDRIVE_HOME=/Config
+  #   volumes:
+  #     - /data/media-server/cloud2/CloudNAS:/CloudNAS:shared
+  #     - /data/media-server/cloud2/Config:/Config
+  #   devices:
+  #     - /dev/fuse:/dev/fuse
+  #   ports:
+  #     - "19798:19798"
+  #   restart: unless-stopped
+  #   pid: "host"
+  #   privileged: true
 
   emby_server:
     image: "emby/embyserver_arm64v8:latest"
@@ -24,9 +24,9 @@ services:
     ports:
       - "8096:8096"
     volumes:
-      - /data/media-server/emby:/config
+      - /Users/jonntd/data/media-server/emby:/config
       # - /data/media-server/cloud2/CloudNAS/CloudDrive:/media
-      - /data/media-server/media:/media
+      - /Users/jonntd/data/media-server/media:/media
 
     environment:
       - "TZ=Asia/Shanghai"
@@ -40,10 +40,10 @@ services:
     ports:
       - "9096:9096"
     volumes:
-      - /data/media-server/config/config.yaml:/config/config.yaml
+      - /Users/jonntd/data/media-server/config/config.yaml:/config/config.yaml
       # - /data/media-server/config/rclone.conf:/.config/rclone/rclone.conf
-      - /data/media-server/logs:/logs
-      - /data/media-server/media:/media
+      - /Users/jonntd/data/media-server/logs:/logs
+      - /Users/jonntd/data/media-server/media:/media
     networks:
       - internal_network
     environment:

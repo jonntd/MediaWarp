@@ -1,9 +1,5 @@
 FROM golang:1.24 AS builder
 
-RUN apk --no-cache --no-progress add git ca-certificates tzdata make \
-    && update-ca-certificates \
-    && rm -rf /var/cache/apk/*
-
 WORKDIR /app
 
 # Download go modules
@@ -27,13 +23,14 @@ RUN echo "**** apt source change for local build ****" && \
     rclone_install_script_url="https://raw.githubusercontent.com/jonntd/rclone/master-115/install.sh" && \
     curl -fsSL $rclone_install_script_url | bash
 
-# Create a minimal container to run a Golang static binary
-FROM scratch
+# 使用alpine作为最小基础镜像而不是scratch
+FROM alpine:latest
+# 安装必要的包
+RUN apk --no-cache add ca-certificates tzdata
 COPY --from=rclone /usr/bin/rclone /usr/bin/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /app/media-warp .
-COPY --from=builder /app/static /static
+COPY --from=builder /app/media-warp /media-warp 
 ENV GIN_MODE=release
+RUN chmod +x /media-warp
+VOLUME ["/config", "/logs", "/custom", "/media"]
 ENTRYPOINT ["/media-warp"]
 EXPOSE 9096
