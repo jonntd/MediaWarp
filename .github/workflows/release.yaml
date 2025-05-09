@@ -10,7 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     permissions:
-      contents: write
+      contents: read
+      packages: write
     steps:
     - uses: actions/checkout@v4
       with:
@@ -19,6 +20,6 @@ jobs:
     - name: Bump version and push tag
       uses: anothrNick/github-tag-action@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
         DEFAULT_BUMP : "patch"
         TAG_PREFIX: v

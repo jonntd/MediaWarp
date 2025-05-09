@@ -2,9 +2,9 @@ name: "docker builder"
 on:
   push:
     branches:
-      - main
+      - 'main'
     tags:
-      - v*
+      - 'v*'
 jobs:
   release:
     name: Release Process
@@ -39,7 +39,7 @@ jobs:
         with:
           registry: ghcr.io
           username: traefiker
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -54,4 +54,4 @@ jobs:
           version: latest
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
