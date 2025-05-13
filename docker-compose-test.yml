@@ -1,0 +1,76 @@
+version: '3.8'
+services:
+  cloudnas:
+    image: cloudnas/clouddrive2
+    container_name: clouddrive2
+    environment:
+      - TZ=Asia/Shanghai
+      - CLOUDDRIVE_HOME=/Config
+    volumes:
+      - /data/media-server/cloud2/CloudNAS:/CloudNAS:shared
+      - /data/media-server/cloud2/Config:/Config
+      - /data/media-server/cloud2/media:/media:shared 
+    devices:
+      - /dev/fuse:/dev/fuse
+    ports:
+      - "19798:19798"
+    restart: unless-stopped
+    pid: "host"
+    privileged: true
+
+  tinymediamanager:
+    image: tinymediamanager/tinymediamanager:latest
+    container_name: tinymediamanager
+    environment:
+      - USER_ID=0
+      - GROUP_ID=0
+      - ALLOW_DIRECT_VNC=true
+      - LC_ALL=en_US.UTF-8 # force UTF8
+      - LANG=en_US.UTF-8   # force UTF8
+      - PASSWORD=958197857aa
+    volumes:
+      - /data/media-server/tmm:/data
+      - /data/media-server/cloud2/CloudNAS:/media/movies
+      - /data/media-server/cloud2/CloudNAS:/media/tv_shows
+    ports:
+      - 5900:5900 # VNC port
+      - 4000:4000 # Webinterface
+    restart: unless-stopped
+
+  emby_server:
+    image: "emby/embyserver_arm64v8:latest"
+    container_name: "emby_server"
+    restart: always
+    ports:
+      - "8096:8096"
+    volumes:
+      - /data/media-server/emby:/config
+      - /data/media-server/media:/media
+
+    environment:
+      - "TZ=Asia/Shanghai"
+    networks:
+      - internal_network
+
+  media_warp:
+    container_name: "media_warp"
+    image: "ghcr.io/jonntd/media-warp:latest"
+    ports:
+      - "9096:9096"
+    volumes:
+      - /data/media-server/config/config.yaml:/config/config.yaml
+      - /data/media-server/config:/root/.config/rclone
+      - /data/media-server/logs:/logs
+      - /data/media-server/media:/media
+    networks:
+      - internal_network
+    environment:
+      - "TZ=Asia/Shanghai"
+
+networks:
+  internal_network:
+    driver: bridge
+
+
+
+# docker compose up -d --pull always
