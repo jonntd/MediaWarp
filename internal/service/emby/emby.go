@@ -2,6 +2,7 @@ package emby
 
 import (
 	"MediaWarp/constants"
+	"MediaWarp/internal/logging"
 	"MediaWarp/utils"
 	"encoding/json"
 	"io"
@@ -57,6 +58,7 @@ func (embyServer *EmbyServer) ItemsServiceQueryItem(ids string, limit int, field
 		return nil, err
 	}
 
+	logging.Debug("Emby API raw response body: ", string(body))
 	err = json.Unmarshal(body, itemResponse)
 	if err != nil {
 		return nil, err
