@@ -29,6 +29,7 @@ var (
 	HTTPStrm     HTTPStrmSetting     // HTTPSTRM设置
 	AlistStrm    AlistStrmSetting    // AlistStrm设置
 	Subtitle     SubtitleSetting     // 字幕设置
+    Debug bool // 是否开启调试模式
 )
 
 // 获取版本信息
@@ -142,6 +143,7 @@ func loadConfig(path string) error {
 	if err := viper.UnmarshalKey("Subtitle", &Subtitle); err != nil {
 		return fmt.Errorf("SubtitleSetting  解析失败, %v", err)
 	}
+	Debug = viper.GetBool("Debug")
 	return nil
 }
 
