@@ -27,6 +27,7 @@ services:
       - /Users/jonntd/data/media-server/emby:/config
       # - /data/media-server/cloud2/CloudNAS/CloudDrive:/media
       - /Users/jonntd/data/media-server/media:/media
+      - /Users/jonntd/data/media-server/media123:/media123
 
     environment:
       - "TZ=Asia/Shanghai"
@@ -44,6 +45,8 @@ services:
       - /Users/jonntd/data/media-server/config:/root/.config/rclone
       - /Users/jonntd/data/media-server/logs:/logs
       - /Users/jonntd/data/media-server/media:/media
+      - /Users/jonntd/data/media-server/media123:/media123
+
     networks:
       - internal_network
     environment:
