@@ -127,7 +127,17 @@ func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 	fmt.Println("sourceDirt:", sourceDir)
 	fmt.Println("remoteDest:", remoteDest)
 
-	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "4", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
+	// cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "2", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--exclude", "*.strm")
+	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]),
+		"--fast-list",
+		"--checkers", "4",
+		"--tpslimit", "5",
+		"--log-level", "INFO",
+		"--delete-after", // 如果需要删除目标中多余的目录
+		"--dirs-only",    // 核心：只同步目录
+		"--local-encoding", "Slash,InvalidUtf8",
+		"--encoding", "Slash,InvalidUtf8")
+
 	fmt.Printf("Running command: %s\n", cmd.String())
 
 	stdout, err := cmd.StdoutPipe()
@@ -192,7 +202,7 @@ func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 
 func createStrmFiles(sourceDir, remoteDest string, colonIndex int) error {
 	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
-	cmd := exec.Command("rclone", "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--checkers", "4", "--transfers", "4", "--tpslimit", "5", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8")
+	cmd := exec.Command("rclone", "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--checkers", "4", "--transfers", "4", "--tpslimit", "5", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--encoding", "Slash,InvalidUtf8")
 	fmt.Printf("Running command: %s\n", cmd.String())
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
