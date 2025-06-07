@@ -193,6 +193,12 @@ func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 
 func createStrmFiles(sourceDir, remoteDest string, colonIndex int) error {
 	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
+	deleteCmd := exec.Command("rclone", "delete", filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--include", "*.nfo")
+	fmt.Printf("Running command: %s\n", deleteCmd.String())
+	if err := deleteCmd.Run(); err != nil {
+		fmt.Printf("Warning: error deleting .nfo files: %v\n", err)
+	}
+
 	cmd := exec.Command("rclone", "lsf", "-R", sourceDir, "-vv", "--files-only", "--min-size", "100M", "--checkers", "4", "--transfers", "4", "--tpslimit", "5", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8")
 	fmt.Printf("Running command: %s\n", cmd.String())
 	stdout, err := cmd.StdoutPipe()
