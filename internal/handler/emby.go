@@ -524,5 +524,5 @@ type CacheItem struct {
 var (
 	redirectURLCache = make(map[string]CacheItem) // 缓存映射表，键为downloadurl+userAgent
 	cacheMutex       = &sync.RWMutex{}            // 读写锁，保证并发安全
-	defaultCacheTime = 20 * time.Minute           // 默认缓存时间，可通过配置修改
+	defaultCacheTime = 15 * time.Minute           // 默认缓存时间，可通过配置修改
 )
