@@ -126,8 +126,16 @@ func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
 	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
 	fmt.Println("sourceDirt:", sourceDir)
 	fmt.Println("remoteDest:", remoteDest)
+	// cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "4", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--dirs-only", "--exclude", "*.*")
 
-	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "4", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--dirs-only", "--exclude", "*.*")
+	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit",
+		"5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "2",
+		"--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8",
+		"--exclude", "*",
+		"--include", "*.srt", "--include", "*.SRT",
+		"--include", "*.ass", "--include", "*.ASS",
+		"--include", "*/")
+	// "--dirs-only", "--exclude", "*.*")
 
 	fmt.Printf("Running command: %s\n", cmd.String())
 
