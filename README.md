@@ -106,3 +106,5 @@ MediaWarp 是**前置于 EmbyServer/Jellyfin 的反向代理服务器**，修改
 <a href="https://github.com/jonntd/MediaWarp/stargazers">
     <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=jonntd/MediaWarp&type=Date">
 </a> 
+
+
