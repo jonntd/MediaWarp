@@ -103,6 +103,10 @@ MediaWarp 是**前置于 EmbyServer/Jellyfin 的反向代理服务器**，修改
 - [RiderLty/fontInAss](https://github.com/RiderLty/fontInAss)
 
 # Star History
-<a href="https://github.com/Akimio521/MediaWarp/stargazers">
-    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=Akimio521/MediaWarp&type=Date">
+<a href="https://github.com/jonntd/MediaWarp/stargazers">
+    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=jonntd/MediaWarp&type=Date">
 </a> 
+
+
+
+
