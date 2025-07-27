@@ -1,7 +1,6 @@
 package handler
 
 import (
-	_115 "MediaWarp/115"
 	"MediaWarp/constants"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
@@ -43,12 +42,10 @@ type DownloadURL struct {
 	URL string `json:"url"` // The file download address
 }
 
-var DriveClient *_115.DriveClient
 var redirectURL string
 
 func init() {
-	// cookie := "UID=341794039_M1_1733655944; CID=6703a177cb0e92e9908d44a49e3032b2; SEID=a9420ed11bc9d9ac818e024086b17f5112dab42fa84c6e4669072aa009cb435b1eb50b836bba16573b75d50bf43e1e2bd034bb02b9c147347ff2734d; KID=c9416be503606bbcb5eb329520fe5c5d"
-	// DriveClient = _115.MustNew115DriveClient(cookie)
+
 }
 
 func convertToLinuxPath(windowsPath string) string {
