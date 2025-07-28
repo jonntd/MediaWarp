@@ -293,33 +293,11 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 				}
 				return
 			case constants.AlistStrm: // 无需判断 *mediasource.Container 是否以Strm结尾，当 AlistStrm 存储的位置有对应的文件时，*mediasource.Container 会被设置为文件后缀
-				// alistServerAddr := opt.(string)
-				// alistServer, err := service.GetAlistServer(alistServerAddr)
-				// if err != nil {
-				// 	logging.Warning("获取 AlistServer 失败：", err)
-				// 	return
-				// }
-				// fsGetData, err := alistServer.FsGet(*mediasource.Path)
-				// if err != nil {
-				// 	logging.Warning("请求 FsGet 失败：", err)
-				// 	return
-				// }
-				// var redirectURL string
-				// if config.AlistStrm.RawURL {
-				// 	redirectURL = fsGetData.RawURL
-				// } else {
-				// 	redirectURL = fmt.Sprintf("%s/d%s", alistServerAddr, *mediasource.Path)
-				// 	if fsGetData.Sign != "" {
-				// 		redirectURL += "?sign=" + fsGetData.Sign
-				// 	}
-				// }
-
 				desiredPath := strings.Replace(*mediasource.Path, opt.(string), "", 1)
 				desiredPath = ensureLeadingSlash(desiredPath)
 				logging.Debug("请求 desiredPath:", desiredPath)
 				logging.Debug("请求 opt.(string):", opt.(string))
 
-				// Type 1
 				downloadurl := fmt.Sprintf("%s:%s", srerveAdd, desiredPath)
 				userAgent := fmt.Sprintf("%s", ctx.Request.Header.Get("User-Agent"))
 				logging.Debug("downloadurl:", downloadurl)
@@ -362,57 +340,6 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 				}
 				logging.Info("AlistStrm 重定向至：", fmt.Sprintf("==%s==", redirectURL))
 				ctx.Redirect(http.StatusFound, redirectURL)
-				// Type 2
-				// logging.Info("302重定向：", *mediasource.Path)
-				// files, err := DriveClient.GetFile(desiredPath)
-				// if err != nil {
-				// 	return
-				// }
-				// userAgent := ctx.Request.Header.Get("User-Agent")
-				// down_url, err := DriveClient.GetFileURL(files, userAgent)
-				// if err != nil {
-				// 	return
-				// }
-				// logging.Info("down_url：", down_url)
-
-				// Type 3
-				// 构建请求115 API获取下载链接
-				// client := &http.Client{}
-				// req, err := http.NewRequest("POST", "https://proapi.115.com/open/ufile/downurl",
-				// 	strings.NewReader("pick_code=cv6i4y9laun1ddxq3"))
-				// if err != nil {
-				// 	logging.Warning("创建请求失败:", err)
-				// 	return
-				// }
-
-				// // 设置请求头
-				// req.Header.Set("Authorization", "Bearer tszs.afb9ac7a16203862d639e17a881315cf.c70a71ce40efe186e0d84b6a5441ec9dff80219a94ca2efd932e1547978df049")
-				// req.Header.Set("User-Agent", ctx.Request.Header.Get("User-Agent"))
-				// req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-				// // 发送请求并处理响应
-				// res, err := client.Do(req)
-				// if err != nil {
-				// 	logging.Warning("请求失败:", err)
-				// 	return
-				// }
-				// defer res.Body.Close()
-
-				// // 解析响应
-				// var response ApiResponse
-				// if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-				// 	logging.Warning("解析响应失败:", err)
-				// 	return
-				// }
-
-				// // 获取下载URL并重定向
-				// for _, downInfo := range response.Data {
-				// 	if downInfo != (FileInfo{}) {
-				// 		logging.Info("获取到下载URL:", downInfo.URL.URL)
-				// 		ctx.Redirect(http.StatusFound, downInfo.URL.URL)
-				// 		return
-				// 	}
-				// }
 				return
 			case constants.UnknownStrm:
 				embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
