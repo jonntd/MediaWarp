@@ -281,7 +281,7 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 		return
 	}
-	strmFileType, opt, srerveAdd := recgonizeStrmFileType(*item.Path)
+	strmFileType, opt, _ := recgonizeStrmFileType(*item.Path)
 	logging.Debug("请求 strmFileType:", strmFileType)
 	for _, mediasource := range item.MediaSources {
 		if *mediasource.ID == mediaSourceID { // EmbyServer >= 4.9 返回的ID带有前缀mediasource_
@@ -298,8 +298,9 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 				logging.Debug("请求 desiredPath:", desiredPath)
 				logging.Debug("请求 opt.(string):", opt.(string))
 
-				downloadurl := fmt.Sprintf("%s:%s", srerveAdd, desiredPath)
-				userAgent := fmt.Sprintf("%s", ctx.Request.Header.Get("User-Agent"))
+				// desiredPath 格式如 /115://cw70g4pz5n532d44w，去掉开头的斜杠得到 115://cw70g4pz5n532d44w
+				downloadurl := strings.TrimPrefix(desiredPath, "/")
+				userAgent := ctx.Request.Header.Get("User-Agent")
 				logging.Debug("downloadurl:", downloadurl)
 				cacheKey := downloadurl + "|" + userAgent
 
@@ -314,7 +315,16 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 					redirectURL = cachedItem.URL
 				} else {
 					// 缓存不存在或已过期，执行rclone命令获取URL
-					cmd := exec.CommandContext(ctx, "rclone", "backend", "getdownloadurlua", downloadurl, userAgent)
+					// 从 downloadurl 中提取远程名称（如 "115:"）
+					colonIndex := strings.Index(downloadurl, ":")
+					if colonIndex == -1 {
+						logging.Warning("无效的 downloadurl 格式：", downloadurl)
+						return
+					}
+					remoteName := downloadurl[:colonIndex+1] // 包含冒号，如 "115:"
+
+					cmd := exec.CommandContext(ctx, "rclone", "backend", "get-download-url", remoteName, downloadurl,
+						"-o", fmt.Sprintf("user-agent=%s", userAgent))
 					var stdoutBuf, stderrBuf bytes.Buffer
 					cmd.Stdout = &stdoutBuf
 					cmd.Stderr = &stderrBuf
