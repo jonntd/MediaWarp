@@ -21,6 +21,7 @@ func InitRouter() *gin.Engine {
 		middleware.Recovery(),
 		middleware.QueryCaseInsensitive(),
 		middleware.SetRefererPolicy(constants.SameOrigin),
+		middleware.AntiBotMiddleware(), // 防爬虫中间件
 	)
 
 	if config.ClientFilter.Enable {
@@ -53,8 +54,49 @@ func InitRouter() *gin.Engine {
 		}
 
 	}
+	// 根路径重定向到登录页面
+	ginR.GET("/", func(ctx *gin.Context) {
+		ctx.Redirect(http.StatusFound, "/login")
+	})
+
 	ginR.GET("/login", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "login.html", gin.H{})
+	})
+
+	// 防止搜索引擎扫描
+	ginR.GET("/robots.txt", func(ctx *gin.Context) {
+		ctx.Header("Content-Type", "text/plain")
+		ctx.String(http.StatusOK, `# MediaWarp - 禁止所有搜索引擎扫描
+User-agent: *
+Disallow: /
+
+# 明确禁止常见的搜索引擎
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: facebookexternalhit
+Disallow: /
+
+User-agent: Twitterbot
+Disallow: /
+
+# 禁止爬取任何内容
+Crawl-delay: 86400`)
 	})
 	// // 添加静态文件服务
 	// staticFS, err := fs.Sub(static.EmbeddedStaticAssets, "emby-crx/static")
@@ -72,6 +114,7 @@ func InitRouter() *gin.Engine {
 
 	// }
 	handler.SyncFilesRouter(ginR)
+	handler.TaskCronRouter(ginR) // 注册任务调度路由
 	ginR.NoRoute(RegexpRouterHandler)
 	return ginR
 }

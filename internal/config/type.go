@@ -86,3 +86,54 @@ type SubtitleSetting struct {
 	ASSStyle []string
 	SubSet   bool // ASS 字幕字体子集化
 }
+
+// Config 统一配置结构体（用于验证）
+type Config struct {
+	Server           *ServerConfig      `yaml:"server" json:"server"`
+	MediaServer      *MediaServerConfig `yaml:"media_server" json:"media_server"`
+	AlistStrmConfigs []*AlistStrmConfig `yaml:"alist_strm_configs" json:"alist_strm_configs"`
+	HTTPStrmConfigs  []*HTTPStrmConfig  `yaml:"http_strm_configs" json:"http_strm_configs"`
+	Log              *LogConfig         `yaml:"log" json:"log"`
+	Features         *FeaturesConfig    `yaml:"features" json:"features"`
+}
+
+// ServerConfig 服务器配置
+type ServerConfig struct {
+	Host string `yaml:"host" json:"host"`
+	Port int    `yaml:"port" json:"port"`
+}
+
+// MediaServerConfig 媒体服务器配置
+type MediaServerConfig struct {
+	Host string `yaml:"host" json:"host"`
+	Port int    `yaml:"port" json:"port"`
+	AUTH string `yaml:"auth" json:"auth"`
+	Type string `yaml:"type" json:"type"`
+}
+
+// AlistStrmConfig Alist配置
+type AlistStrmConfig struct {
+	ADDR     string `yaml:"addr" json:"addr"`
+	Username string `yaml:"username" json:"username"`
+	Password string `yaml:"password" json:"password"`
+	Host     string `yaml:"host" json:"host"`
+	Type     string `yaml:"type" json:"type"`
+}
+
+// HTTPStrmConfig HTTP Strm配置
+type HTTPStrmConfig struct {
+	PrefixPath string `yaml:"prefix_path" json:"prefix_path"`
+}
+
+// LogConfig 日志配置
+type LogConfig struct {
+	Level  string `yaml:"level" json:"level"`
+	Output string `yaml:"output" json:"output"`
+	File   string `yaml:"file" json:"file"`
+}
+
+// FeaturesConfig 功能配置
+type FeaturesConfig struct {
+	EnableCache   bool `yaml:"enable_cache" json:"enable_cache"`
+	EnableMetrics bool `yaml:"enable_metrics" json:"enable_metrics"`
+}

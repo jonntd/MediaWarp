@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"MediaWarp/internal/cache"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
+	"MediaWarp/internal/process"
+	"MediaWarp/internal/security"
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,9 +24,12 @@ import (
 )
 
 type TaskManager struct {
-	mu      sync.Mutex
-	running bool
-	cond    *sync.Cond
+	mu          sync.Mutex
+	running     bool
+	cond        *sync.Cond
+	currentTask string    // 当前执行的任务名称
+	startTime   time.Time // 任务开始时间
+	queuedTasks []string  // 排队等待的任务
 }
 
 // 创建 TaskManager 的实例
@@ -34,23 +41,86 @@ func NewTaskManager() *TaskManager {
 
 // 任务执行函数，确保同一时间只有一个任务在运行
 func (tm *TaskManager) RunTask(handler func()) {
+	tm.RunTaskWithName("未知任务", handler)
+}
+
+// RunTaskWithName 带任务名称的任务执行函数
+func (tm *TaskManager) RunTaskWithName(taskName string, handler func()) {
 	go func() { // 任务执行在新的 Goroutine 中完全异步化
 		tm.mu.Lock()
+
+		// 如果有任务在运行，加入队列等待
+		if tm.running {
+			tm.queuedTasks = append(tm.queuedTasks, taskName)
+			logging.Info("任务加入队列", "task", taskName, "queue_length", len(tm.queuedTasks))
+		}
+
 		for tm.running { // 如果有任务在运行，等待
 			tm.cond.Wait()
 		}
+
+		// 从队列中移除当前任务
+		if len(tm.queuedTasks) > 0 && tm.queuedTasks[0] == taskName {
+			tm.queuedTasks = tm.queuedTasks[1:]
+		}
+
+		// 开始执行任务
 		tm.running = true
+		tm.currentTask = taskName
+		tm.startTime = time.Now()
 		tm.mu.Unlock()
 
+		logging.Info("开始执行任务", "task", taskName, "start_time", tm.startTime)
+
 		handler() // 执行任务
+
+		logging.Info("任务执行完成", "task", taskName, "duration", time.Since(tm.startTime))
 
 		time.Sleep(30 * time.Second) // 任务结束后等待 30 秒
 
 		tm.mu.Lock()
 		tm.running = false
+		tm.currentTask = ""
+		tm.startTime = time.Time{}
 		tm.cond.Signal() // 通知下一个任务可以开始执行
 		tm.mu.Unlock()
+
+		logging.Info("任务管理器空闲", "next_queue_length", len(tm.queuedTasks))
 	}()
+}
+
+// TaskManagerStatus 任务管理器状态
+type TaskManagerStatus struct {
+	Running     bool     `json:"running"`
+	CurrentTask string   `json:"current_task"`
+	StartTime   string   `json:"start_time,omitempty"`
+	Duration    string   `json:"duration,omitempty"`
+	QueuedTasks []string `json:"queued_tasks"`
+	QueueLength int      `json:"queue_length"`
+}
+
+// GetStatus 获取任务管理器状态
+func (tm *TaskManager) GetStatus() TaskManagerStatus {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	status := TaskManagerStatus{
+		Running:     tm.running,
+		CurrentTask: tm.currentTask,
+		QueuedTasks: make([]string, len(tm.queuedTasks)),
+		QueueLength: len(tm.queuedTasks),
+	}
+
+	// 复制队列任务列表
+	copy(status.QueuedTasks, tm.queuedTasks)
+
+	// 如果有任务在运行，计算运行时间
+	if tm.running && !tm.startTime.IsZero() {
+		status.StartTime = tm.startTime.Format("2006-01-02 15:04:05")
+		status.Duration = time.Since(tm.startTime).Round(time.Second).String()
+	}
+
+	return status
 }
 
 var taskManager = NewTaskManager() // 定义全局任务管理器，只允许一个任务同时运行
@@ -59,6 +129,30 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 	fullPath := ctx.Param("path")
 	serverAddr := ctx.GetHeader("X-Alist-Server")
 	prefixPath := ctx.GetHeader("X-Prefix-Path")
+
+	// 安全验证
+	if err := security.ValidatePath(fullPath); err != nil {
+		logging.Warning("无效的路径参数:", err)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"message": "error",
+			"error":   "Invalid path parameter",
+		})
+		return
+	}
+
+	if serverAddr != "" {
+		if cleanAddr, err := security.SanitizeServerAddr(serverAddr); err != nil {
+			logging.Warning("无效的服务器地址:", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"message": "error",
+				"error":   "Invalid server address",
+			})
+			return
+		} else {
+			serverAddr = cleanAddr
+		}
+	}
+
 	sourceDir := serverAddr + ":" + fullPath
 
 	logging.Infof("sourceDirt: %s", sourceDir)
@@ -385,22 +479,75 @@ func SyncfolderHandler(ctx *gin.Context) {
 
 	var folders []string
 	if apiKey == config.MediaServer.AUTH {
-		// 运行rclone lsf命令获取目录列表
-		cmd := exec.Command("rclone", "lsf", serverAddr+":"+path, "--dirs-only", "--tpslimit", "5")
-		fmt.Printf("Running command: %s\n", cmd.String())
-
-		output, err := cmd.Output()
-		if err != nil {
-			ctx.String(http.StatusInternalServerError, fmt.Sprintf("Error running rclone: %v", err))
+		// 安全验证参数
+		if err := security.ValidatePath(path); err != nil {
+			logging.Warning("无效的路径参数:", err)
+			ctx.String(http.StatusBadRequest, "Invalid path parameter")
 			return
 		}
-		// Split the output into lines
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		// Create a slice of folders
-		for _, line := range lines {
-			if line != "" {
-				folders = append(folders, line)
+
+		if cleanAddr, err := security.SanitizeServerAddr(serverAddr); err != nil {
+			logging.Warning("无效的服务器地址:", err)
+			ctx.String(http.StatusBadRequest, "Invalid server address")
+			return
+		} else {
+			serverAddr = cleanAddr
+		}
+
+		// 首先尝试从缓存获取
+		if cachedFolders, found := cache.GlobalFolderCache.Get(serverAddr, path); found {
+			logging.Info("使用缓存的文件夹列表", "server", serverAddr, "path", path, "count", len(cachedFolders))
+			folders = cachedFolders
+		} else {
+			// 缓存未命中，执行rclone命令
+			logging.Info("缓存未命中，执行rclone命令", "server", serverAddr, "path", path)
+
+			// 根据路径复杂度动态调整超时时间
+			timeout := 30 * time.Second
+			if strings.Contains(path, "电影") || strings.Contains(path, "video") || strings.Contains(path, "movie") {
+				timeout = 60 * time.Second // 视频目录通常文件较多，增加超时时间
+				logging.Info("检测到视频目录，增加超时时间", "path", path, "timeout", timeout)
 			}
+
+			// 使用安全的进程管理执行命令
+			ctx_timeout, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			rcloneCmd := serverAddr + ":" + path
+			output, err := process.RunWithOutput(ctx_timeout, timeout, "rclone", "lsf", rcloneCmd, "--dirs-only")
+			if err != nil {
+				logging.Error("执行rclone命令失败", "server", serverAddr, "path", path, "command", rcloneCmd, "error", err)
+
+				// 根据错误类型提供更具体的错误信息
+				var errorMsg string
+				if strings.Contains(err.Error(), "exit status 3") {
+					errorMsg = fmt.Sprintf("路径不存在或配置错误: %s", rcloneCmd)
+				} else if strings.Contains(err.Error(), "exit status 1") {
+					errorMsg = fmt.Sprintf("认证失败或权限不足: %s", rcloneCmd)
+				} else if strings.Contains(err.Error(), "signal: killed") || strings.Contains(err.Error(), "context deadline exceeded") {
+					errorMsg = fmt.Sprintf("目录扫描超时，文件夹可能包含大量内容: %s (超时时间: %v)", rcloneCmd, timeout)
+					logging.Warning("rclone命令超时", "server", serverAddr, "path", path, "timeout", timeout, "suggestion", "考虑增加超时时间或优化目录结构")
+				} else {
+					errorMsg = fmt.Sprintf("rclone命令执行失败: %s", err.Error())
+				}
+
+				// 记录错误但不缓存失败结果
+				ctx.String(http.StatusInternalServerError, errorMsg)
+				return
+			}
+
+			// Split the output into lines
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			// Create a slice of folders
+			for _, line := range lines {
+				if line != "" {
+					folders = append(folders, line)
+				}
+			}
+
+			// 将结果保存到缓存
+			cache.GlobalFolderCache.Set(serverAddr, path, folders)
+			logging.Info("文件夹列表已缓存", "server", serverAddr, "path", path, "count", len(folders))
 		}
 	}
 
@@ -422,12 +569,58 @@ func handleSyncFolder(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Sync request received", "path": path})
 }
 
+// 缓存管理API处理函数
+func cacheStatsHandler(ctx *gin.Context) {
+	stats := cache.GlobalFolderCache.GetStats()
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Cache statistics",
+		"stats":   stats,
+	})
+}
+
+func clearCacheHandler(ctx *gin.Context) {
+	server := ctx.Query("server")
+	if server != "" {
+		// 清除指定服务器的缓存
+		cache.GlobalFolderCache.ClearByServer(server)
+		logging.Info("已清除指定服务器的缓存", "server", server)
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("Cache cleared for server: %s", server),
+		})
+	} else {
+		// 清除所有缓存
+		cache.GlobalFolderCache.Clear()
+		logging.Info("已清除所有缓存")
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "All cache cleared",
+		})
+	}
+}
+
+func exportCacheHandler(ctx *gin.Context) {
+	data, err := cache.GlobalFolderCache.Export()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to export cache",
+		})
+		return
+	}
+
+	ctx.Header("Content-Type", "application/json")
+	ctx.Header("Content-Disposition", "attachment; filename=folder_cache.json")
+	ctx.Data(http.StatusOK, "application/json", data)
+}
+
 func SyncFilesRouter(router *gin.Engine) {
 	// API to verify API Key
 	router.POST("/verify", verifyAPIKey)
+
 	// Routes with API Key auth
 	router.GET("/syncfolder", SyncfolderHandler)
 	router.POST("/Sync/*path", apiKeyAuth(), MediaFileSyncHandler)
-	// router.POST("/Sync/*path", apiKeyAuth(), handleSyncFolder)
 
+	// 缓存管理API (需要API Key认证)
+	router.GET("/cache/stats", apiKeyAuth(), cacheStatsHandler)
+	router.POST("/cache/clear", apiKeyAuth(), clearCacheHandler)
+	router.GET("/cache/export", apiKeyAuth(), exportCacheHandler)
 }

@@ -2,12 +2,17 @@ package main
 
 import (
 	"MediaWarp/constants"
+	"MediaWarp/internal/cache"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/handler"
+	"MediaWarp/internal/health"
 	"MediaWarp/internal/logging"
+	"MediaWarp/internal/metrics"
+	"MediaWarp/internal/process"
 	"MediaWarp/internal/router"
 	"MediaWarp/internal/service"
 	"MediaWarp/utils"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,8 +21,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-
-	"encoding/json"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -76,6 +80,41 @@ func make_config() {
 
 }
 
+// initializeEnhancedSystem 初始化增强系统
+func initializeEnhancedSystem() error {
+	logging.Info("正在初始化增强系统...")
+
+	// 1. 验证环境
+	if err := config.ValidateEnvironment(); err != nil {
+		logging.Warning("环境验证警告: ", err)
+		// 不中断启动，只记录警告
+	}
+
+	// 2. 初始化文件夹缓存 (15分钟TTL)
+	cache.InitGlobalFolderCache(15 * time.Minute)
+	logging.Info("文件夹缓存已初始化", "ttl", "15分钟")
+
+	// 3. 添加健康检查
+	health.GlobalHealthChecker.AddCheck(&health.RcloneHealthCheck{})
+
+	// 4. 启动指标收集
+	go startMetricsCollection()
+
+	logging.Info("增强系统初始化完成")
+	return nil
+}
+
+// startMetricsCollection 启动指标收集
+func startMetricsCollection() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		// 更新系统指标
+		// 这里可以添加更多的指标更新逻辑
+	}
+}
+
 func main() {
 	if showVersion {
 		versionInfo, _ := json.MarshalIndent(config.Version(), "", "  ")
@@ -101,6 +140,12 @@ func main() {
 		logging.Error("媒体服务器处理器初始化失败：", err)
 		return
 	}
+
+	// 初始化增强系统
+	if err := initializeEnhancedSystem(); err != nil {
+		logging.Error("增强系统初始化失败：", err)
+		return
+	}
 	if !isDebug {
 		isDebug = config.Debug
 	}
@@ -114,6 +159,28 @@ func main() {
 	logging.Info("Environ ", os.Environ())
 	logging.Info("MediaWarp 监听端口：", config.Port)
 	ginR := router.InitRouter() // 路由初始化
+
+	// 添加健康检查和监控端点
+	ginR.GET("/health", health.HealthHandler)
+	ginR.GET("/ready", health.ReadinessHandler)
+	ginR.GET("/live", health.LivenessHandler)
+	ginR.GET("/metrics", func(ctx *gin.Context) {
+		allMetrics := metrics.GlobalCollector.GetAllMetrics()
+
+		result := make(map[string]interface{})
+		for name, metric := range allMetrics {
+			result[name] = map[string]interface{}{
+				"type":   metric.Type(),
+				"value":  metric.Value(),
+				"labels": metric.Labels(),
+			}
+		}
+
+		ctx.JSON(200, gin.H{
+			"metrics":   result,
+			"timestamp": time.Now(),
+		})
+	})
 	logging.Info("MediaWarp 启动成功")
 	go func() {
 		if err := ginR.Run(config.ListenAddr()); err != nil {
@@ -124,8 +191,23 @@ func main() {
 	select {
 	case sig := <-signChan:
 		logging.Info("MediaWarp 正在退出，信号：", sig)
+		gracefulShutdown()
 	case err := <-errChan:
 		logging.Error("MediaWarp 运行出错：", err)
+		gracefulShutdown()
 	}
 
+}
+
+// gracefulShutdown 优雅关闭
+func gracefulShutdown() {
+	logging.Info("正在执行优雅关闭...")
+
+	// 停止进程管理器
+	process.GlobalProcessManager.KillAll()
+
+	// 关闭缓存（如果有全局缓存实例）
+	// globalCache.Close()
+
+	logging.Info("优雅关闭完成")
 }

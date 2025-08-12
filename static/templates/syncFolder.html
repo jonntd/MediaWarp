@@ -1,9 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaWarp - 文件同步</title>
+    <title>MediaWarp - 文件同步管理</title>
+
+    <!-- 防止搜索引擎索引 -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="slurp" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="duckduckbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="baiduspider" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="yandexbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+
+    <!-- 防止社交媒体爬虫 -->
+    <meta property="og:title" content="Private Application">
+    <meta property="og:description" content="This is a private application">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Private Application">
+    <meta name="twitter:description" content="This is a private application">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -49,14 +66,17 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.4;
             transition: var(--transition);
         }
 
         .container {
             width: 100%;
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 12px;
+            flex: 1;
         }
 
         header {
@@ -128,19 +148,47 @@
             color: white;
         }
 
-        .selectors {
-            margin-bottom: 20px;
+        /* 紧凑选择器样式 */
+        .compact-selectors {
+            background-color: var(--card-bg);
+            padding: 8px 14px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            box-shadow: var(--shadow);
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
-        .selector-group {
-            margin-bottom: 15px;
+        .selector-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .selector-label {
-            display: block;
-            margin-bottom: 8px;
+        .selector-item label {
+            font-size: 13px;
             font-weight: 500;
-            color: var(--text-light);
+            color: var(--text-color);
+            white-space: nowrap;
+        }
+
+        .selector-item select {
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 13px;
+            min-width: 120px;
+            transition: var(--transition);
+        }
+
+        .selector-item select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 1px rgba(67, 97, 238, 0.2);
         }
 
         select {
@@ -169,62 +217,64 @@
             box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.3);
         }
 
-        .path-info {
-            background-color: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: var(--shadow);
-            display: flex;
-            align-items: center;
-        }
 
-        .path-info i {
-            margin-right: 10px;
-            color: var(--primary-color);
-        }
 
-        .path-text {
-            font-size: 16px;
-            font-weight: 500;
-            word-break: break-all;
-        }
-
+        /* 紧凑文件夹列表 */
         .folder-list {
             list-style-type: none;
             padding: 0;
+            margin: 0;
         }
 
         .folder-item {
             background-color: var(--card-bg);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            box-shadow: var(--shadow);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            border: 1px solid var(--border-color);
             transition: var(--transition);
             overflow: hidden;
         }
 
         .folder-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .folder-item:hover .folder-link {
+            color: white;
+        }
+
+        .folder-item:hover .sync-button {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .folder-item:hover .copy-task-button {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
         }
 
         .folder-content {
             display: flex;
             align-items: center;
+            padding: 8px 12px;
+            gap: 10px;
         }
 
         .sync-button {
             background-color: var(--accent-color);
             color: white;
             border: none;
-            width: 50px;
-            height: 50px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: var(--transition);
+            border-radius: 4px;
+            flex-shrink: 0;
         }
 
         .sync-button:hover {
@@ -232,21 +282,477 @@
         }
 
         .sync-button i {
-            font-size: 1.2rem;
+            font-size: 13px;
+        }
+
+        .copy-task-button {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .copy-task-button:hover {
+            background-color: #45a049;
+        }
+
+        .copy-task-button i {
+            font-size: 13px;
         }
 
         .folder-link {
             text-decoration: none;
             color: var(--text-color);
-            padding: 15px 20px;
-            display: block;
+            display: flex;
+            align-items: center;
             flex-grow: 1;
             transition: var(--transition);
             font-weight: 500;
+            font-size: 15px;
+            gap: 8px;
         }
 
         .folder-link:hover {
             background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        /* 简化的文件夹区域样式 */
+        .folder-section {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* 紧凑工具栏样式 */
+        .compact-toolbar {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 6px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-group {
+            display: flex;
+            gap: 4px;
+        }
+
+        .info-group {
+            flex: 1;
+            text-align: center;
+        }
+
+        .folder-count {
+            font-size: 13px;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+
+        .action-group {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .action-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white !important;
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 12px;
+        }
+
+        .action-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            color: white !important;
+        }
+
+        .action-btn i {
+            color: white !important;
+        }
+
+        .cache-indicator {
+            display: flex;
+            align-items: center;
+            margin-left: 5px;
+        }
+
+        .nav-section {
+            display: flex;
+            gap: 2px;
+        }
+
+        .nav-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white !important;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 13px;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            color: white !important;
+        }
+
+        .nav-btn i {
+            color: white !important;
+        }
+
+
+
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .folder-count {
+            font-size: 14px;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        .tool-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white !important;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .tool-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            color: white !important;
+        }
+
+        .tool-btn i {
+            color: white !important;
+        }
+
+        .cache-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .cache-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--error-color);
+            transition: var(--transition);
+        }
+
+        .cache-dot.active {
+            background-color: var(--success-color);
+        }
+
+        .cache-indicator {
+            display: flex;
+            align-items: center;
+            margin-left: 5px;
+        }
+
+
+
+        /* 极简布局样式 */
+        .mini-header {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+        }
+
+        .mini-title {
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 15px;
+        }
+
+        .mini-tools {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .mini-btn {
+            background-color: transparent;
+            border: none;
+            color: var(--text-light);
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 13px;
+        }
+
+        .mini-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .mini-btn.danger:hover {
+            background-color: var(--error-color);
+        }
+
+        .icon-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+
+        .icon-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .icon-btn.danger {
+            background-color: rgba(244, 67, 54, 0.3);
+        }
+
+        .icon-btn.danger:hover {
+            background-color: rgba(244, 67, 54, 0.5);
+        }
+
+        .status-line {
+            background-color: var(--card-bg);
+            padding: 6px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-light);
+        }
+
+        .divider {
+            color: var(--border-color);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 3px;
+        }
+
+        .nav-line {
+            background-color: var(--card-bg);
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .breadcrumb-compact {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .nav-btn {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.85rem;
+        }
+
+        .nav-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .path-sep {
+            color: var(--text-light);
+            margin: 0 5px;
+        }
+
+        .current-path {
+            color: var(--text-color);
+            font-weight: 500;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 3px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 紧凑响应式设计 */
+        @media (max-width: 768px) {
+            .mini-header {
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+
+            .mini-title {
+                font-size: 13px;
+            }
+
+            .mini-tools {
+                gap: 2px;
+            }
+
+            .compact-selectors {
+                padding: 6px 10px;
+                gap: 10px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .selector-item {
+                justify-content: space-between;
+            }
+
+            .selector-item label {
+                font-size: 12px;
+            }
+
+            .selector-item select {
+                font-size: 12px;
+            }
+
+            .compact-toolbar {
+                padding: 4px 8px;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .nav-group {
+                order: 1;
+            }
+
+            .info-group {
+                order: 2;
+            }
+
+            .action-group {
+                order: 3;
+                justify-content: center;
+                gap: 2px;
+            }
+
+            .folder-content {
+                padding: 6px 8px;
+                gap: 8px;
+            }
+
+            .sync-button {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+
+            .copy-task-button {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+
+            .folder-link {
+                font-size: 13px;
+            }
+
+            .mini-btn, .nav-btn, .action-btn {
+                padding: 4px 6px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .mini-header {
+                padding: 3px 8px;
+                font-size: 11px;
+            }
+
+            .folder-toolbar {
+                padding: 3px 6px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .folder-container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+
+            .folder-header {
+                padding: 12px 15px;
+            }
+
+            .folder-title {
+                font-size: 1rem;
+            }
+
+            .folder-count {
+                font-size: 0.75rem;
+                padding: 2px 6px;
+            }
+
+            .search-box {
+                padding: 8px 12px;
+                padding-left: 35px;
+                font-size: 13px;
+            }
+
+            .folder-content {
+                padding: 10px 12px;
+            }
+
+            .folder-link {
+                font-size: 14px;
+            }
         }
 
         .dark-mode .folder-link:hover {
@@ -260,17 +766,23 @@
 
         .empty-message {
             text-align: center;
-            padding: 30px;
+            padding: 15px;
             background-color: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: var(--shadow);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
             color: var(--text-light);
+            margin: 4px 0;
         }
 
         .empty-message i {
-            font-size: 3rem;
-            margin-bottom: 15px;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
             color: var(--border-color);
+        }
+
+        .empty-message p {
+            margin: 0;
+            font-size: 14px;
         }
 
         /* 加载动画 */
@@ -360,10 +872,255 @@
                 height: 40px;
             }
 
+            .copy-task-button {
+                width: 100%;
+                height: 40px;
+            }
+        }
+
+        /* 复制任务模态框样式 */
+        .copy-task-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .copy-task-modal .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .copy-task-modal .modal-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-task-modal .modal-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        .copy-task-modal .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0.8;
+            transition: var(--transition);
+        }
+
+        .copy-task-modal .close:hover {
+            opacity: 1;
+        }
+
+        .copy-task-modal .modal-body {
+            padding: 25px;
+        }
+
+        .task-preview {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .preview-item {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .preview-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .preview-item strong {
+            color: var(--primary-color);
+            display: inline-block;
+            width: 80px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 768px) {
+            .copy-task-modal .modal-content {
+                width: 95%;
+                margin: 20px;
+            }
+
+            .copy-task-modal .modal-header {
+                padding: 15px;
+            }
+
+            .copy-task-modal .modal-body {
+                padding: 20px;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
+
+            .modal-actions .btn {
+                width: 100%;
+            }
+
             .folder-link {
                 width: 100%;
                 padding: 12px 15px;
             }
+        }
+
+        /* 用户状态栏样式 */
+        .user-bar {
+            background-color: var(--card-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-light);
+        }
+
+        .api-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #28a745;
+            margin-right: 5px;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: var(--transition);
+        }
+
+        .action-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .action-btn.danger {
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+
+        .action-btn.danger:hover {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        /* 面包屑导航 */
+        .breadcrumb {
+            background-color: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: var(--shadow);
+            font-size: 14px;
+        }
+
+        .breadcrumb a {
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-right: 5px;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb .separator {
+            color: var(--text-light);
+            margin: 0 5px;
+        }
+
+        /* 同步进度条 */
+        .sync-progress {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 14px;
+            color: var(--text-light);
+            text-align: center;
         }
     </style>
 </head>
@@ -377,40 +1134,47 @@
         <span id="notification-message"></span>
     </div>
 
-    <header>
-        <div class="container header-content">
-            <h1 class="app-title">MediaWarp 文件同步</h1>
-            <button class="theme-toggle" id="theme-toggle">
-                <i class="fas fa-moon"></i>
-            </button>
-        </div>
-    </header>
-
     <div class="container">
-        <div class="nav-buttons">
-            <button class="nav-button" onclick="goBack()">
-                <i class="fas fa-arrow-left"></i> 返回
-            </button>
-            <button class="nav-button" onclick="goHome()">
-                <i class="fas fa-home"></i> 首页
-            </button>
-            <button class="nav-button" onclick="goForward()">
-                <i class="fas fa-arrow-right"></i> 前进
-            </button>
+        <!-- 极简顶部栏 -->
+        <div class="mini-header">
+            <div class="mini-title">📁 {{if .Path}}{{.Path}}{{else}}根目录{{end}}</div>
+            <div class="mini-tools">
+                <span class="api-status" title="认证状态"></span>
+                <button class="mini-btn" onclick="goToTasks()" title="任务管理">
+                    <i class="fas fa-tasks"></i>
+                </button>
+                <button class="mini-btn" onclick="showCacheStats()" title="缓存统计">
+                    <i class="fas fa-chart-bar"></i>
+                </button>
+                <button class="mini-btn" id="theme-toggle" title="切换主题">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="mini-btn danger" onclick="logout()" title="登出">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
         </div>
 
-        <div class="selectors">
-            <div class="selector-group">
-                <label class="selector-label" for="alist-server">服务器</label>
+        <!-- 同步进度条 -->
+        <div class="sync-progress" id="sync-progress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">同步中...</div>
+        </div>
+
+        <!-- 紧凑选择器 -->
+        <div class="compact-selectors">
+            <div class="selector-item">
+                <label for="alist-server">服务器:</label>
                 <select id="alist-server" onchange="changeServer()">
                     {{range .Servers}}
-                    <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}} - {{.ADDR}}</option>
+                    <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}}-{{.ADDR}}</option>
                     {{end}}
                 </select>
             </div>
-
-            <div class="selector-group">
-                <label class="selector-label" for="prefix-path">前缀路径</label>
+            <div class="selector-item">
+                <label for="prefix-path">前缀:</label>
                 <select id="prefix-path">
                     {{range .PrefixList}}
                     <option value="{{.}}" {{if eq . $.CurrentPrefix}}selected{{end}}>{{.}}</option>
@@ -419,57 +1183,409 @@
             </div>
         </div>
 
-        <div class="path-info">
-            <i class="fas fa-folder-open"></i>
-            <div class="path-text">{{.Path}}</div>
-        </div>
 
-        <ul class="folder-list">
-            {{range .Folders}}
-            <li class="folder-item">
-                <div class="folder-content">
-                    <button class="sync-button" onclick="syncFolder('{{$.Path}}{{.}}')">
-                        <i class="fas fa-sync-alt"></i>
+
+        <!-- 文件夹列表区域 -->
+        <div class="folder-section">
+            <!-- 紧凑操作栏 -->
+            <div class="compact-toolbar">
+                <div class="nav-group">
+                    <button class="nav-btn" onclick="goHome()" title="根目录">
+                        <i class="fas fa-home"></i>
                     </button>
-                    <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=&server={{$.CurrentServer}}" class="folder-link" id="folder-link-{{.}}">
-                        <i class="fas fa-folder"></i> {{.}}
-                    </a>
+                    <button class="nav-btn" onclick="goBack()" title="返回">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <button class="nav-btn" onclick="goForward()" title="前进">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
                 </div>
-            </li>
-            {{else}}
-            <li class="empty-message">
-                <i class="fas fa-folder-open"></i>
-                <p>没有找到目录</p>
-            </li>
-            {{end}}
-        </ul>
+                <div class="info-group">
+                    <span class="folder-count" id="folder-count">{{len .Folders}}</span>
+                </div>
+                <div class="action-group">
+                    <button class="action-btn" onclick="refreshFolderList()" title="刷新列表">
+                        <i class="fas fa-refresh"></i>
+                    </button>
+                    <button class="action-btn" onclick="clearBackendCache()" title="清除后端缓存">
+                        <i class="fas fa-server"></i>
+                    </button>
+                    <button class="action-btn" onclick="clearFrontendCache()" title="清除前端缓存">
+                        <i class="fas fa-broom"></i>
+                    </button>
+                    <div class="cache-indicator" id="cache-status">
+                        <span class="cache-dot" id="cache-dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文件夹列表 -->
+            <ul class="folder-list" id="folder-list">
+                {{range .Folders}}
+                <li class="folder-item" data-folder-name="{{.}}">
+                    <div class="folder-content">
+                        <button class="sync-button" onclick="syncFolder('{{$.Path}}{{.}}')" title="同步此文件夹">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="copy-task-button" onclick="copyFolderAsTask('{{$.Path}}{{.}}', '{{$.CurrentServer}}')" title="复制为任务">
+                            <i class="fas fa-tasks"></i>
+                        </button>
+                        <a href="/syncfolder?path={{$.Path}}{{.}}&apiKey=&server={{$.CurrentServer}}" class="folder-link" id="folder-link-{{.}}" data-folder-path="{{$.Path}}{{.}}">
+                            <i class="fas fa-folder"></i> {{.}}
+                        </a>
+                    </div>
+                </li>
+                {{else}}
+                <li class="empty-message">
+                    <i class="fas fa-folder-open"></i>
+                    <p>没有找到目录</p>
+                </li>
+                {{end}}
+            </ul>
+        </div>
     </div>
 
     <script>
         // 主题切换功能
-        const themeToggle = document.getElementById('theme-toggle');
-        const icon = themeToggle.querySelector('i');
-        
-        // 检查本地存储中的主题设置
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark-mode');
-            icon.classList.remove('fa-moon');
-            icon.classList.add('fa-sun');
+        function initThemeToggle() {
+            const themeToggle = document.getElementById('theme-toggle');
+            if (!themeToggle) return;
+
+            const icon = themeToggle.querySelector('i');
+            if (!icon) return;
+
+            // 检查本地存储中的主题设置
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+
+            // 移除旧的事件监听器（如果存在）
+            themeToggle.removeEventListener('click', toggleTheme);
+
+            // 添加新的事件监听器
+            themeToggle.addEventListener('click', toggleTheme);
         }
-        
-        themeToggle.addEventListener('click', () => {
+
+        // 主题切换处理函数
+        function toggleTheme() {
+            console.log('主题切换被触发');
             document.body.classList.toggle('dark-mode');
-            
+
+            const themeToggle = document.getElementById('theme-toggle');
+            const icon = themeToggle.querySelector('i');
+
             if (document.body.classList.contains('dark-mode')) {
                 icon.classList.remove('fa-moon');
                 icon.classList.add('fa-sun');
                 localStorage.setItem('darkMode', 'true');
+                showNotification('已切换到暗色主题', 'success');
             } else {
                 icon.classList.remove('fa-sun');
                 icon.classList.add('fa-moon');
                 localStorage.setItem('darkMode', 'false');
+                showNotification('已切换到亮色主题', 'success');
             }
-        });
+        }
+
+        // 简化的缓存管理（仅用于状态显示）
+        const FolderCache = {
+            cacheKey: 'mediawarp_folders',
+            pageCacheKey: 'mediawarp_pages',
+            timeout: 5 * 60 * 1000, // 5分钟（已禁用）
+
+            // 获取缓存键
+            getKey(path, server) {
+                // 处理根目录的情况
+                const cleanPath = path || '';
+                const cleanServer = server || 'default';
+                return `${this.cacheKey}_${cleanServer}_${cleanPath || 'root'}`;
+            },
+
+            // 设置缓存
+            set(path, server, folders) {
+                try {
+                    const key = this.getKey(path, server);
+                    const data = {
+                        folders: folders,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem(key, JSON.stringify(data));
+                    this.updateStatus(true);
+                } catch (e) {
+                    console.warn('缓存设置失败:', e);
+                }
+            },
+
+            // 获取缓存
+            get(path, server) {
+                try {
+                    const key = this.getKey(path, server);
+                    const cached = localStorage.getItem(key);
+
+                    if (!cached) {
+                        this.updateStatus(false);
+                        return null;
+                    }
+
+                    const data = JSON.parse(cached);
+                    const isExpired = Date.now() - data.timestamp > this.timeout;
+
+                    if (isExpired) {
+                        localStorage.removeItem(key);
+                        this.updateStatus(false);
+                        return null;
+                    }
+
+                    this.updateStatus(true);
+                    return data.folders;
+                } catch (e) {
+                    console.warn('缓存读取失败:', e);
+                    this.updateStatus(false);
+                    return null;
+                }
+            },
+
+            // 清除缓存
+            clear() {
+                try {
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.startsWith(this.cacheKey)) {
+                            localStorage.removeItem(key);
+                        }
+                    });
+                    this.updateStatus(false);
+                    showNotification('缓存已清除', 'success');
+                } catch (e) {
+                    console.warn('缓存清除失败:', e);
+                }
+            },
+
+            // 更新状态显示
+            updateStatus(hasCache) {
+                const dot = document.getElementById('cache-dot');
+
+                if (dot) {
+                    if (hasCache) {
+                        dot.classList.add('active');
+                        dot.title = '已缓存';
+                    } else {
+                        dot.classList.remove('active');
+                        dot.title = '无缓存';
+                    }
+                }
+            },
+
+            // 页面缓存功能
+            setPageCache(url, htmlContent) {
+                try {
+                    const data = {
+                        html: htmlContent,
+                        timestamp: Date.now(),
+                        url: url
+                    };
+                    localStorage.setItem(`${this.pageCacheKey}_${btoa(url)}`, JSON.stringify(data));
+                    console.log('页面已缓存:', url);
+                } catch (e) {
+                    console.warn('页面缓存设置失败:', e);
+                }
+            },
+
+            getPageCache(url) {
+                try {
+                    const cached = localStorage.getItem(`${this.pageCacheKey}_${btoa(url)}`);
+                    if (!cached) return null;
+
+                    const data = JSON.parse(cached);
+                    const isExpired = Date.now() - data.timestamp > this.timeout;
+
+                    if (isExpired) {
+                        localStorage.removeItem(`${this.pageCacheKey}_${btoa(url)}`);
+                        return null;
+                    }
+
+                    console.log('使用页面缓存:', url);
+                    return data.html;
+                } catch (e) {
+                    console.warn('页面缓存读取失败:', e);
+                    return null;
+                }
+            },
+
+            clearPageCache() {
+                try {
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.startsWith(this.pageCacheKey)) {
+                            localStorage.removeItem(key);
+                        }
+                    });
+                    console.log('页面缓存已清除');
+                } catch (e) {
+                    console.warn('页面缓存清除失败:', e);
+                }
+            }
+        };
+
+
+
+        // 刷新文件夹列表
+        function refreshFolderList() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPath = urlParams.get('path') || '';
+            const currentServer = urlParams.get('server') || '';
+
+            // 清除当前路径的缓存
+            const key = FolderCache.getKey(currentPath, currentServer);
+            localStorage.removeItem(key);
+
+            showNotification('正在刷新...', 'success');
+
+            // 重新加载页面
+            setTimeout(() => {
+                window.location.reload();
+            }, 300);
+        }
+
+        // 清除前端缓存
+        function clearFrontendCache() {
+            if (confirm('确定要清除前端缓存吗？')) {
+                FolderCache.clear();
+                FolderCache.clearPageCache();
+                showNotification('前端缓存已清除', 'success');
+            }
+        }
+
+        // 清除后端缓存
+        function clearBackendCache() {
+            if (confirm('确定要清除后端缓存吗？这将清除服务器端的文件夹缓存。')) {
+                const apiKey = localStorage.getItem('apiKey');
+                if (!apiKey) {
+                    showNotification('未授权：请重新登录', 'error');
+                    return;
+                }
+
+                fetch('/cache/clear', {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': apiKey,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        showNotification(data.message, 'success');
+                    } else {
+                        showNotification('后端缓存已清除', 'success');
+                    }
+                })
+                .catch(error => {
+                    console.error('清除后端缓存失败:', error);
+                    showNotification('清除后端缓存失败', 'error');
+                });
+            }
+        }
+
+        // 显示缓存统计
+        function showCacheStats() {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                showNotification('未授权：请重新登录', 'error');
+                return;
+            }
+
+            fetch('/cache/stats', {
+                method: 'GET',
+                headers: {
+                    'X-API-Key': apiKey
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.stats) {
+                    const stats = data.stats;
+                    const message = `后端缓存统计:
+总项目: ${stats.total_items}
+活跃项目: ${stats.active_items}
+过期项目: ${stats.expired_items}
+默认TTL: ${stats.default_ttl}`;
+
+                    alert(message);
+                } else {
+                    showNotification('获取缓存统计失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('获取缓存统计失败:', error);
+                showNotification('获取缓存统计失败', 'error');
+            });
+        }
+
+
+
+        // 简化的导航拦截（仅用于缓存提示）
+        function interceptNavigation() {
+            // 仅在点击链接时显示缓存状态提示
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a[href*="/syncfolder"]');
+                if (link && !e.ctrlKey && !e.metaKey) {
+                    const url = link.href;
+                    const cachedHtml = FolderCache.getPageCache(url);
+                    if (cachedHtml) {
+                        console.log('目标页面已缓存:', url);
+                    } else {
+                        console.log('目标页面未缓存，将请求服务器:', url);
+                    }
+                }
+            });
+        }
+
+        // 初始化缓存状态
+        function initCache() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPath = urlParams.get('path') || '';
+            const currentServer = urlParams.get('server') || '';
+
+            console.log('初始化缓存 - 路径:', currentPath || '根目录', '服务器:', currentServer || 'default');
+
+            // 检查缓存状态
+            const cached = FolderCache.get(currentPath, currentServer);
+            FolderCache.updateStatus(cached !== null);
+
+            // 保存当前页面的文件夹列表到缓存
+            const folderItems = document.querySelectorAll('.folder-item[data-folder-name]');
+            if (folderItems.length > 0) {
+                const folders = Array.from(folderItems).map(item =>
+                    item.getAttribute('data-folder-name')
+                );
+                console.log('保存文件夹到缓存:', folders.length, '个文件夹');
+                FolderCache.set(currentPath, currentServer, folders);
+            } else {
+                // 即使没有文件夹，也保存空列表到缓存
+                console.log('保存空文件夹列表到缓存');
+                FolderCache.set(currentPath, currentServer, []);
+            }
+
+            // 保存当前页面到页面缓存
+            const currentUrl = window.location.href;
+            const htmlContent = document.documentElement.outerHTML;
+            FolderCache.setPageCache(currentUrl, htmlContent);
+        }
+
+        // 页面初始化函数
+        function initializePage() {
+            // 初始化主题切换
+            initThemeToggle();
+
+            // 重新初始化缓存
+            initCache();
+
+            // 重新绑定导航拦截
+            interceptNavigation();
+        }
 
         // 显示通知函数
         function showNotification(message, type = 'success') {
@@ -520,9 +1636,20 @@
                 window.location.href = "/login";
                 return;
             }
-            showLoading();
-            const syncFolderUrl = `/syncfolder?apiKey=${encodeURIComponent(apiKey)}`;
-            window.location.href = syncFolderUrl;
+
+            // 验证密钥后跳转
+            validateApiKey(apiKey).then(isValid => {
+                if (isValid) {
+                    showLoading();
+                    const syncFolderUrl = `/syncfolder?apiKey=${encodeURIComponent(apiKey)}`;
+                    window.location.href = syncFolderUrl;
+                } else {
+                    showNotification('认证已失效，请重新登录', 'error');
+                    setTimeout(() => {
+                        window.location.href = "/login";
+                    }, 2000);
+                }
+            });
         }
 
         // 更改服务器函数
@@ -533,10 +1660,65 @@
                 window.location.href = "/login";
                 return;
             }
+
             showLoading();
             const server = document.getElementById('alist-server').value;
-            const path = "{{.Path}}";
-            window.location.href = `/syncfolder?path=${path}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`;
+            // 切换服务器时重置到根目录，避免路径不存在的问题
+            const path = "";
+
+            // 使用AJAX动态加载新服务器的内容，避免页面刷新
+            fetch(`/syncfolder?path=${encodeURIComponent(path)}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                // 解析返回的HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // 更新文件夹列表
+                const newFolderList = doc.querySelector('.folder-list');
+                const currentFolderList = document.querySelector('.folder-list');
+                if (newFolderList && currentFolderList) {
+                    currentFolderList.innerHTML = newFolderList.innerHTML;
+                }
+
+                // 更新面包屑导航
+                const newBreadcrumb = doc.querySelector('.breadcrumb');
+                const currentBreadcrumb = document.querySelector('.breadcrumb');
+                if (newBreadcrumb && currentBreadcrumb) {
+                    currentBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+                }
+
+                // 更新页面标题
+                const newTitle = doc.querySelector('title');
+                if (newTitle) {
+                    document.title = newTitle.textContent;
+                }
+
+                // 更新URL但不刷新页面
+                const newUrl = `/syncfolder?path=${encodeURIComponent(path)}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`;
+                window.history.pushState({path: path, server: server}, '', newUrl);
+
+                hideLoading();
+                showNotification(`已切换到服务器: ${server}`, 'success');
+            })
+            .catch(error => {
+                console.error('切换服务器失败:', error);
+                hideLoading();
+                showNotification('切换服务器失败，请重试', 'error');
+
+                // 如果AJAX失败，回退到页面刷新方式
+                window.location.href = `/syncfolder?path=${encodeURIComponent(path)}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`;
+            });
         }
 
         // 同步文件夹函数
@@ -547,11 +1729,18 @@
                 window.location.href = "/login";
                 return;
             }
-            
+
             const server = document.getElementById('alist-server').value;
             const prefix = document.getElementById('prefix-path').value;
 
+            // 确认同步操作
+            if (!confirm(`确定要同步文件夹 "${path}" 吗？\n\n这可能需要一些时间，请耐心等待。`)) {
+                return;
+            }
+
             showLoading();
+            showSyncProgress(`正在同步: ${path}`);
+
             fetch('/Sync/' + path, {
                 method: 'POST',
                 headers: {
@@ -564,33 +1753,331 @@
             .then(response => {
                 hideLoading();
                 if (response.ok) {
-                    showNotification(`成功发送同步请求：${path}`, 'success');
+                    showNotification(`✅ 同步请求已发送：${path}`, 'success');
+                    showNotification('同步正在后台进行，请稍后查看结果', 'success');
                 } else {
-                    showNotification(`发送同步请求失败：${path}`, 'error');
+                    showNotification(`❌ 同步请求失败：${path}`, 'error');
                 }
             })
             .catch(error => {
                 hideLoading();
                 console.error('Error:', error);
-                showNotification(`发送同步请求出错：${path}`, 'error');
+                showNotification(`🚫 同步请求出错：${path}`, 'error');
             });
+        }
+
+        // 跳转到任务管理
+        function goToTasks() {
+            console.log('goToTasks() 被调用');
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                console.log('没有找到 apiKey');
+                showNotification('未授权：请重新登录', 'error');
+                window.location.href = "/login";
+                return;
+            }
+            const taskUrl = `/task?apiKey=${encodeURIComponent(apiKey)}`;
+            console.log('跳转到任务页面:', taskUrl);
+
+            // 显示跳转提示
+            showNotification('正在跳转到任务管理...', 'success');
+
+            // 延迟跳转，让用户看到提示
+            setTimeout(() => {
+                window.location.href = taskUrl;
+            }, 500);
+        }
+
+
+
+        // 登出功能
+        function logout() {
+            if (confirm('确定要登出吗？')) {
+                localStorage.removeItem('apiKey');
+                showNotification('已登出，正在跳转...', 'success');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
+            }
+        }
+
+        // 验证API密钥有效性
+        function validateApiKey(apiKey) {
+            return fetch('/tasks', {
+                headers: {
+                    'X-API-Key': apiKey
+                }
+            })
+            .then(response => response.ok)
+            .catch(() => false);
+        }
+
+        // 更新认证状态显示
+        function updateAuthStatus(isValid) {
+            const statusElement = document.getElementById('auth-status');
+            const statusDot = document.querySelector('.api-status');
+
+            if (isValid) {
+                statusElement.textContent = '已认证';
+                statusDot.style.backgroundColor = '#28a745';
+            } else {
+                statusElement.textContent = '认证失效';
+                statusDot.style.backgroundColor = '#dc3545';
+                showNotification('认证已失效，请重新登录', 'error');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 3000);
+            }
+        }
+
+        // 复制文件夹为任务配置
+        function copyFolderAsTask(folderPath, server) {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                showNotification('未授权：请重新登录', 'error');
+                window.location.href = "/login";
+                return;
+            }
+
+            // 获取当前配置
+            const prefix = document.getElementById('prefix-path').value;
+            const fullSourcePath = `${server}:${folderPath}`;
+
+            // 生成任务配置
+            const taskConfig = generateTaskConfig(folderPath, fullSourcePath, server, prefix);
+
+            // 显示选择模态框
+            showCopyTaskModal(taskConfig);
+        }
+
+        // 生成任务配置
+        function generateTaskConfig(folderPath, sourcePath, server, prefix) {
+            // 从路径中提取文件夹名称
+            const folderName = folderPath.split('/').filter(p => p).pop() || 'root';
+
+            // 生成任务名称
+            const taskName = `sync_${server}_${folderName}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+            // 生成目标路径（基于prefix），处理路径拼接避免双斜杠
+            let targetPath;
+            if (prefix) {
+                // 清理prefix的尾部斜杠
+                const cleanPrefix = prefix.replace(/\/+$/, '');
+                targetPath = `${cleanPrefix}/${folderName}`;
+            } else {
+                targetPath = `/data/media/${folderName}`;
+            }
+
+            // 生成Cron表达式（默认每天凌晨2点执行）
+            const schedule = "0 0 2 * * *";
+
+            return {
+                name: taskName,
+                schedule: schedule,
+                function: "custom_sync",
+                task_type: "custom_sync",
+                description: `自动同步 ${server} 的 ${folderPath} 文件夹`,
+                custom_params: {
+                    source_path: sourcePath,
+                    target_path: targetPath,
+                    sync_options: ["min-size=100M", "strm-format", "sync-delete"],
+                    rclone_path: "rclone"
+                }
+            };
+        }
+
+        // 显示复制任务模态框
+        function showCopyTaskModal(taskConfig) {
+            const modal = document.createElement('div');
+            modal.className = 'copy-task-modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>复制为任务</h3>
+                        <span class="close" onclick="this.closest('.copy-task-modal').remove()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <p>将此文件夹配置复制为定时同步任务：</p>
+                        <div class="task-preview">
+                            <div class="preview-item">
+                                <strong>任务名称:</strong> ${taskConfig.name}
+                            </div>
+                            <div class="preview-item">
+                                <strong>源路径:</strong> ${taskConfig.custom_params.source_path}
+                            </div>
+                            <div class="preview-item">
+                                <strong>目标路径:</strong> ${taskConfig.custom_params.target_path}
+                            </div>
+                            <div class="preview-item">
+                                <strong>执行频率:</strong> 每6小时
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" onclick="goToTaskPageWithConfig(${JSON.stringify(taskConfig).replace(/"/g, '&quot;')})">
+                                <i class="fas fa-external-link-alt"></i> 跳转到任务页面
+                            </button>
+                            <button class="btn btn-secondary" onclick="copyConfigToClipboard(${JSON.stringify(taskConfig).replace(/"/g, '&quot;')})">
+                                <i class="fas fa-copy"></i> 复制配置
+                            </button>
+                            <button class="btn btn-light" onclick="this.closest('.copy-task-modal').remove()">
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+        }
+
+        // 跳转到任务页面并预填充配置
+        function goToTaskPageWithConfig(taskConfig) {
+            // 将配置保存到localStorage
+            localStorage.setItem('pendingTaskConfig', JSON.stringify(taskConfig));
+
+            // 获取当前的API密钥
+            const apiKey = localStorage.getItem('apiKey');
+
+            // 跳转到任务页面，携带API密钥参数
+            if (apiKey) {
+                window.location.href = `/task?apiKey=${encodeURIComponent(apiKey)}`;
+            } else {
+                window.location.href = '/task';
+            }
+        }
+
+        // 复制配置到剪贴板
+        function copyConfigToClipboard(taskConfig) {
+            const configText = JSON.stringify(taskConfig, null, 2);
+
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(configText).then(() => {
+                    showNotification('任务配置已复制到剪贴板', 'success');
+                    document.querySelector('.copy-task-modal').remove();
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    fallbackCopyToClipboard(configText);
+                });
+            } else {
+                fallbackCopyToClipboard(configText);
+            }
+        }
+
+        // 备用复制方法
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                showNotification('任务配置已复制到剪贴板', 'success');
+                document.querySelector('.copy-task-modal').remove();
+            } catch (err) {
+                console.error('复制失败:', err);
+                showNotification('复制失败，请手动复制', 'error');
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        // 显示同步进度
+        function showSyncProgress(message) {
+            const progressDiv = document.getElementById('sync-progress');
+            const progressText = document.getElementById('progress-text');
+            const progressFill = document.getElementById('progress-fill');
+
+            progressText.textContent = message;
+            progressDiv.style.display = 'block';
+
+            // 模拟进度
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 20;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                    }, 1000);
+                }
+                progressFill.style.width = progress + '%';
+            }, 200);
         }
 
         // 页面加载时检查 API Key
         window.onload = function() {
             const apiKey = localStorage.getItem('apiKey');
             if (!apiKey) {
-                window.location.href = "/login";
+                showNotification('未授权：请重新登录', 'error');
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 2000);
                 return;
             }
 
-            // 为所有文件夹链接添加 apiKey
-            document.querySelectorAll('a[id^="folder-link-"]').forEach(link => {
-                const href = link.href;
-                const serverParam = href.includes('server=') ? '' : `&server=${encodeURIComponent(document.getElementById('alist-server').value)}`;
-                link.href = href.replace('apiKey=', `apiKey=${encodeURIComponent(apiKey)}`) + serverParam;
+            // 验证API密钥有效性
+            validateApiKey(apiKey).then(isValid => {
+                updateAuthStatus(isValid);
+                if (!isValid) {
+                    return;
+                }
             });
+
+            // 初始化页面
+            initializePage();
+
+            // 为所有文件夹链接添加 apiKey 并修复URL编码
+            document.querySelectorAll('a[id^="folder-link-"]').forEach(link => {
+                const folderPath = link.getAttribute('data-folder-path');
+                const currentServer = document.getElementById('alist-server').value;
+
+                // 正确构建URL，确保路径被正确编码
+                const encodedPath = encodeURIComponent(folderPath);
+                const encodedApiKey = encodeURIComponent(apiKey);
+                const encodedServer = encodeURIComponent(currentServer);
+
+                link.href = `/syncfolder?path=${encodedPath}&apiKey=${encodedApiKey}&server=${encodedServer}`;
+
+                console.log('修复链接URL编码:', {
+                    原始路径: folderPath,
+                    编码路径: encodedPath,
+                    最终URL: link.href
+                });
+            });
+
+            // 显示缓存状态提示
+            setTimeout(() => {
+                const currentUrl = window.location.href;
+                console.log('当前页面已缓存，减轻服务器压力:', currentUrl);
+                showNotification('页面已缓存，减轻服务器压力', 'success');
+            }, 1000);
+
+
+
+            // 定期检查API密钥有效性
+            setInterval(() => {
+                validateApiKey(apiKey).then(isValid => {
+                    updateAuthStatus(isValid);
+                });
+            }, 60000); // 每分钟检查一次
         };
+
+        // 处理浏览器前进/后退按钮
+        window.addEventListener('popstate', function(event) {
+            if (event.state) {
+                // 重新加载页面内容
+                location.reload();
+            }
+        });
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，开始初始化...');
+            initThemeToggle(); // 初始化主题切换
+            initializePage(); // 初始化页面
+        });
     </script>
 </body>
 </html>

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"MediaWarp/constants"
+	"MediaWarp/internal/cache"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
 	"MediaWarp/internal/service/emby"
@@ -16,7 +17,6 @@ import (
 	"os/exec"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -305,12 +305,7 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 				cacheKey := downloadurl + "|" + userAgent
 
 				// 尝试从缓存获取URL
-				cacheMutex.RLock()
-				cachedItem, exists := redirectURLCache[cacheKey]
-				cacheMutex.RUnlock()
-
-				// 检查缓存是否存在且未过期
-				if exists && time.Now().Before(cachedItem.ExpireTime) {
+				if cachedItem, exists := redirectURLCache.Get(cacheKey); exists {
 					logging.Info("从缓存获取重定向URL：", cachedItem.URL)
 					redirectURL = cachedItem.URL
 				} else {
@@ -340,13 +335,9 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 						return
 					}
 					// 将新获取的URL存入缓存
-					cacheMutex.Lock()
-					redirectURLCache[cacheKey] = CacheItem{
-						URL:        redirectURL,
-						ExpireTime: time.Now().Add(defaultCacheTime),
-					}
-					cacheMutex.Unlock()
-					logging.Info("缓存重定向URL，过期时间：", time.Now().Add(defaultCacheTime))
+					expireTime := time.Now().Add(defaultCacheTime)
+					redirectURLCache.Set(cacheKey, redirectURL, expireTime)
+					logging.Info("缓存重定向URL，过期时间：", expireTime)
 				}
 				logging.Info("AlistStrm 重定向至：", fmt.Sprintf("==%s==", redirectURL))
 				ctx.Redirect(http.StatusFound, redirectURL)
@@ -448,15 +439,13 @@ func (embyServerHandler *EmbyServerHandler) ModifyIndex(rw *http.Response) error
 
 var _ MediaServerHandler = (*EmbyServerHandler)(nil) // 确保 EmbyServerHandler 实现 MediaServerHandler 接口
 
-// 缓存项结构
-type CacheItem struct {
-	URL        string    // 缓存的URL
-	ExpireTime time.Time // 过期时间
-}
-
-// 缓存管理器
+// 全局安全缓存实例
 var (
-	redirectURLCache = make(map[string]CacheItem) // 缓存映射表，键为downloadurl+userAgent
-	cacheMutex       = &sync.RWMutex{}            // 读写锁，保证并发安全
-	defaultCacheTime = 15 * time.Minute           // 默认缓存时间，可通过配置修改
+	redirectURLCache *cache.SafeCache
+	defaultCacheTime = 15 * time.Minute // 默认缓存时间，可通过配置修改
 )
+
+// 初始化缓存
+func init() {
+	redirectURLCache = cache.NewSafeCache(5 * time.Minute) // 每5分钟清理一次过期项
+}

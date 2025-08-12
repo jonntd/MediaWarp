@@ -1,0 +1,34 @@
+# MediaWarp - 禁止所有搜索引擎扫描
+User-agent: *
+Disallow: /
+
+# 明确禁止常见的搜索引擎
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: facebookexternalhit
+Disallow: /
+
+User-agent: Twitterbot
+Disallow: /
+
+# 禁止爬取任何内容
+Crawl-delay: 86400
+
+# 没有站点地图
+# Sitemap: (故意留空)
