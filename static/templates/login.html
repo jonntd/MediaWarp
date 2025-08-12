@@ -1,13 +1,52 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>MediaWarp - 登录</title>
+
+    <!-- 防止搜索引擎索引 -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="slurp" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="duckduckbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="baiduspider" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="yandexbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+
+    <!-- 防止社交媒体爬虫 -->
+    <meta property="og:title" content="Private Application">
+    <meta property="og:description" content="This is a private application">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Private Application">
+    <meta name="twitter:description" content="This is a private application">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --text-color: #333;
+            --text-light: #666;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
             margin: 0;
             padding: 20px;
             display: flex;
@@ -15,19 +54,380 @@
             align-items: center;
             flex-direction: column;
             min-height: 100vh;
+            transition: var(--transition);
         }
 
-        .container {
-            max-width: 400px;
+        .login-container {
+            max-width: 420px;
             width: 100%;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        h1 {
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo i {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .app-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 5px;
+        }
+
+        .app-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        .form-group {
             margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-color);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 15px 15px 15px 45px;
+            font-size: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            transition: var(--transition);
+            outline: none;
+        }
+
+        input[type="password"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            color: var(--error-color);
+            font-size: 0.85rem;
+            margin-top: 8px;
+            display: none;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .loading.show {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: var(--text-light);
+            font-size: 0.8rem;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .login-container {
+                margin: 10px;
+                padding: 30px 20px;
+            }
+
+            .app-name {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* 暗色主题 */
+        .dark-mode {
+            --text-color: #e0e0e0;
+            --text-light: #b0b0b0;
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --border-color: #333;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: var(--transition);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-moon" id="theme-icon"></i>
+    </button>
+
+    <div class="login-container">
+        <div class="logo">
+            <i class="fas fa-cube"></i>
+            <div class="app-name">MediaWarp</div>
+            <div class="app-subtitle">媒体文件同步管理平台</div>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="apiKey">API 密钥</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-key input-icon"></i>
+                    <input type="password" id="apiKey" name="apiKey" placeholder="请输入您的API密钥" required>
+                </div>
+                <div class="error-message" id="errorMessage">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="errorText"></span>
+                </div>
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+                <span id="loginText">登录</span>
+                <div class="loading" id="loading"></div>
+            </button>
+        </form>
+
+        <div class="footer">
+            © 2024 MediaWarp. 安全登录
+        </div>
+    </div>
+
+    <script>
+        // 主题切换功能
+        function toggleTheme() {
+            const body = document.body;
+            const themeIcon = document.getElementById('theme-icon');
+
+            body.classList.toggle('dark-mode');
+
+            if (body.classList.contains('dark-mode')) {
+                themeIcon.className = 'fas fa-sun';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                themeIcon.className = 'fas fa-moon';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // 初始化主题
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const themeIcon = document.getElementById('theme-icon');
+
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeIcon.className = 'fas fa-sun';
+            }
+        }
+
+        // 显示错误消息
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+
+            errorText.textContent = message;
+            errorMessage.style.display = 'flex';
+
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // 设置加载状态
+        function setLoading(isLoading) {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginText = document.getElementById('loginText');
+            const loading = document.getElementById('loading');
+            const apiKeyInput = document.getElementById('apiKey');
+
+            if (isLoading) {
+                loginBtn.disabled = true;
+                loginText.textContent = '登录中...';
+                loading.classList.add('show');
+                apiKeyInput.disabled = true;
+            } else {
+                loginBtn.disabled = false;
+                loginText.textContent = '登录';
+                loading.classList.remove('show');
+                apiKeyInput.disabled = false;
+            }
+        }
+
+        // 验证API密钥
+        async function validateApiKey(apiKey) {
+            try {
+                const response = await fetch('/validate-api-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    }
+                });
+
+                return response.ok;
+            } catch (error) {
+                console.error('API密钥验证失败:', error);
+                return false;
+            }
+        }
+
+        // 处理登录
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!apiKey) {
+                showError('请输入API密钥');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const isValid = await validateApiKey(apiKey);
+
+                if (isValid) {
+                    localStorage.setItem('apiKey', apiKey);
+                    window.location.href = `/syncfolder?apiKey=${encodeURIComponent(apiKey)}`;
+                } else {
+                    showError('API密钥无效，请检查后重试');
+                    document.getElementById('apiKey').focus();
+                }
+            } catch (error) {
+                console.error('登录失败:', error);
+                showError('登录失败，请检查网络连接');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initTheme();
+
+            // 绑定表单提交事件
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+
+            // 检查是否已经有有效的API密钥
+            const existingApiKey = localStorage.getItem('apiKey');
+            if (existingApiKey) {
+                setLoading(true);
+                validateApiKey(existingApiKey).then(isValid => {
+                    if (isValid) {
+                        window.location.href = `/syncfolder?apiKey=${encodeURIComponent(existingApiKey)}`;
+                    } else {
+                        localStorage.removeItem('apiKey');
+                        setLoading(false);
+                    }
+                }).catch(() => {
+                    localStorage.removeItem('apiKey');
+                    setLoading(false);
+                });
+            } else {
+                // 自动聚焦到输入框
+                document.getElementById('apiKey').focus();
+            }
+
+            // 输入时隐藏错误消息
+            document.getElementById('apiKey').addEventListener('input', function() {
+                document.getElementById('errorMessage').style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
             text-align: center;
             color: #333;
         }
