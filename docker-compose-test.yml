@@ -59,9 +59,14 @@ services:
       - "9096:9096"
     volumes:
       - /data/media-server/config/config.yaml:/config/config.yaml
-      - /data/media-server/config:/root/.config/rclone
+      - /root/.config/rclone:/root/.config/rclone
+      - /usr/bin/rclone:/usr/bin/rclone
       - /data/media-server/logs:/logs
       - /data/media-server/media:/media
+      - /data/media-server/cloud2/CloudNAS:/CloudNAS
+      - /data/media-server/media123:/media123
+      - /data/media-server/media115:/media115
+
     networks:
       - internal_network
     environment:
