@@ -181,6 +181,10 @@ func main() {
 			"timestamp": time.Now(),
 		})
 	})
+
+	// 注册缓存统计API路由
+	handler.RegisterCacheStatsRoutes(ginR)
+	logging.Info("缓存监控API已启用")
 	logging.Info("MediaWarp 启动成功")
 	go func() {
 		if err := ginR.Run(config.ListenAddr()); err != nil {
@@ -206,8 +210,11 @@ func gracefulShutdown() {
 	// 停止进程管理器
 	process.GlobalProcessManager.KillAll()
 
-	// 关闭缓存（如果有全局缓存实例）
-	// globalCache.Close()
+	// 关闭全局播放信息缓存
+	if cache.GlobalPlaybackCache != nil {
+		cache.GlobalPlaybackCache.Close()
+		logging.Info("播放信息缓存已关闭")
+	}
 
 	logging.Info("优雅关闭完成")
 }

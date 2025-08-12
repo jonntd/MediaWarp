@@ -64,15 +64,17 @@ func ensureLeadingSlash(alistPath string) string {
 
 // Emby服务器处理器
 type EmbyServerHandler struct {
-	server      *emby.EmbyServer       // Emby 服务器
-	routerRules []RegexpRouteRule      // 正则路由规则
-	proxy       *httputil.ReverseProxy // 反向代理
+	server      *emby.EmbyServer         // Emby 服务器
+	routerRules []RegexpRouteRule        // 正则路由规则
+	proxy       *httputil.ReverseProxy   // 反向代理
+	cache       *cache.PlaybackInfoCache // 播放信息缓存
 }
 
 // 初始化
 func NewEmbyServerHandler(addr string, apiKey string) (*EmbyServerHandler, error) {
 	var embyServerHandler = EmbyServerHandler{}
 	embyServerHandler.server = emby.New(addr, apiKey)
+	embyServerHandler.cache = cache.GlobalPlaybackCache // 使用全局缓存实例
 	target, err := url.Parse(embyServerHandler.server.GetEndpoint())
 	if err != nil {
 		return nil, err
@@ -164,14 +166,43 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 	}
 
 	for index, mediasource := range playbackInfoResponse.MediaSources {
-		logging.Debug("请求 ItemsServiceQueryItem：" + *mediasource.ID)
-		itemResponse, err := embyServerHandler.server.ItemsServiceQueryItem(strings.Replace(*mediasource.ID, "mediasource_", "", 1), 1, "Path,MediaSources") // 查询 item 需要去除前缀仅保留数字部分
-		if err != nil {
-			logging.Warning("请求 ItemsServiceQueryItem 失败：", err)
-			continue
+		mediaSourceID := strings.Replace(*mediasource.ID, "mediasource_", "", 1)
+		logging.Debug("处理媒体源：" + mediaSourceID)
+
+		// 1. 尝试从缓存获取媒体项信息
+		var itemResponse *emby.EmbyResponse
+		var item emby.BaseItemDto
+
+		if cachedItem, found := embyServerHandler.cache.GetItemInfo(mediaSourceID); found {
+			logging.Info("媒体项信息缓存命中：", mediaSourceID)
+			itemResponse = cachedItem.EmbyItem
+		} else {
+			logging.Info("媒体项信息缓存未命中，从上游获取：", mediaSourceID)
+			itemResponse, err = embyServerHandler.server.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
+			if err != nil {
+				logging.Warning("请求 ItemsServiceQueryItem 失败：", err)
+				continue
+			}
+			// 缓存结果（30分钟TTL）
+			embyServerHandler.cache.SetItemInfo(mediaSourceID, itemResponse, nil, 30*time.Minute)
 		}
-		item := itemResponse.Items[0]
-		strmFileType, _, _ := recgonizeStrmFileType(*item.Path)
+
+		item = itemResponse.Items[0]
+
+		// 2. 尝试从缓存获取Strm文件类型
+		var strmFileType constants.StrmFileType
+		var strmOption interface{}
+
+		if cachedStrm, found := embyServerHandler.cache.GetStrmType(*item.Path); found {
+			logging.Info("Strm类型缓存命中：", *item.Path)
+			strmFileType = cachedStrm.Type
+			strmOption = cachedStrm.Option
+		} else {
+			logging.Info("Strm类型缓存未命中，重新识别：", *item.Path)
+			strmFileType, strmOption, _ = recgonizeStrmFileType(*item.Path)
+			// 缓存结果（1小时TTL）
+			embyServerHandler.cache.SetStrmType(*item.Path, strmFileType, strmOption, 1*time.Hour)
+		}
 		switch strmFileType {
 		case constants.HTTPStrm: // HTTPStrm 设置支持直链播放并且支持转码
 			if !config.HTTPStrm.TransCode {
@@ -267,21 +298,49 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 	// EmbyServer <= 4.8 ====> mediaSourceID = 343121
 	// EmbyServer >= 4.9 ====> mediaSourceID = mediasource_31
 	mediaSourceID := ctx.Query("mediasourceid")
+	cleanMediaSourceID := strings.Replace(mediaSourceID, "mediasource_", "", 1)
 
-	logging.Debug("请求 ItemsServiceQueryItem：", mediaSourceID)
-	itemResponse, err := embyServerHandler.server.ItemsServiceQueryItem(strings.Replace(mediaSourceID, "mediasource_", "", 1), 1, "Path,MediaSources") // 查询 item 需要去除前缀仅保留数字部分
-	if err != nil {
-		logging.Warning("请求 ItemsServiceQueryItem 失败：", err)
-		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
-		return
+	// 1. 尝试从缓存获取媒体项信息（避免重复API调用）
+	var itemResponse *emby.EmbyResponse
+	var item emby.BaseItemDto
+	var err error
+
+	if cachedItem, found := embyServerHandler.cache.GetItemInfo(cleanMediaSourceID); found {
+		logging.Info("VideosHandler - 媒体项信息缓存命中：", cleanMediaSourceID)
+		itemResponse = cachedItem.EmbyItem
+	} else {
+		logging.Info("VideosHandler - 媒体项信息缓存未命中，从上游获取：", cleanMediaSourceID)
+		itemResponse, err = embyServerHandler.server.ItemsServiceQueryItem(cleanMediaSourceID, 1, "Path,MediaSources")
+		if err != nil {
+			logging.Warning("请求 ItemsServiceQueryItem 失败：", err)
+			embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
+			return
+		}
+		// 缓存结果（30分钟TTL）
+		embyServerHandler.cache.SetItemInfo(cleanMediaSourceID, itemResponse, nil, 30*time.Minute)
 	}
-	item := itemResponse.Items[0]
+
+	item = itemResponse.Items[0]
 	if !strings.HasSuffix(strings.ToLower(*item.Path), ".strm") { // 不是 Strm 文件
 		logging.Debug("播放本地视频：" + *item.Path + "，不进行处理")
 		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 		return
 	}
-	strmFileType, opt, _ := recgonizeStrmFileType(*item.Path)
+
+	// 2. 尝试从缓存获取Strm文件类型（避免重复解析）
+	var strmFileType constants.StrmFileType
+	var opt interface{}
+
+	if cachedStrm, found := embyServerHandler.cache.GetStrmType(*item.Path); found {
+		logging.Info("VideosHandler - Strm类型缓存命中：", *item.Path)
+		strmFileType = cachedStrm.Type
+		opt = cachedStrm.Option
+	} else {
+		logging.Info("VideosHandler - Strm类型缓存未命中，重新识别：", *item.Path)
+		strmFileType, opt, _ = recgonizeStrmFileType(*item.Path)
+		// 缓存结果（1小时TTL）
+		embyServerHandler.cache.SetStrmType(*item.Path, strmFileType, opt, 1*time.Hour)
+	}
 	logging.Debug("请求 strmFileType:", strmFileType)
 	for _, mediasource := range item.MediaSources {
 		if *mediasource.ID == mediaSourceID { // EmbyServer >= 4.9 返回的ID带有前缀mediasource_
