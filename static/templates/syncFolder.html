@@ -1175,7 +1175,7 @@
             </div>
             <div class="selector-item">
                 <label for="prefix-path">前缀:</label>
-                <select id="prefix-path">
+                <select id="prefix-path" onchange="changePrefix()">
                     {{range .PrefixList}}
                     <option value="{{.}}" {{if eq . $.CurrentPrefix}}selected{{end}}>{{.}}</option>
                     {{end}}
@@ -1663,6 +1663,8 @@
 
             showLoading();
             const server = document.getElementById('alist-server').value;
+            console.log('切换到服务器:', server);
+
             // 切换服务器时重置到根目录，避免路径不存在的问题
             const path = "";
 
@@ -1698,6 +1700,42 @@
                     currentBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
                 }
 
+                // 更新前缀路径选择器
+                const newPrefixSelect = doc.querySelector('#prefix-path');
+                const currentPrefixSelect = document.querySelector('#prefix-path');
+                if (newPrefixSelect && currentPrefixSelect) {
+                    currentPrefixSelect.innerHTML = newPrefixSelect.innerHTML;
+                    console.log('前缀路径选择器已更新');
+                } else {
+                    console.warn('未找到前缀路径选择器元素');
+                }
+
+                // 更新整个紧凑选择器区域（确保所有选择器都更新）
+                const newCompactSelectors = doc.querySelector('.compact-selectors');
+                const currentCompactSelectors = document.querySelector('.compact-selectors');
+                if (newCompactSelectors && currentCompactSelectors) {
+                    // 保存当前选中的服务器值
+                    const selectedServer = server;
+
+                    // 更新整个选择器区域
+                    currentCompactSelectors.innerHTML = newCompactSelectors.innerHTML;
+
+                    // 重新设置服务器选择器的值并绑定事件
+                    const updatedServerSelect = document.querySelector('#alist-server');
+                    if (updatedServerSelect) {
+                        updatedServerSelect.value = selectedServer;
+                        updatedServerSelect.onchange = changeServer;
+                    }
+
+                    // 重新绑定前缀选择器的事件
+                    const updatedPrefixSelect = document.querySelector('#prefix-path');
+                    if (updatedPrefixSelect) {
+                        updatedPrefixSelect.onchange = changePrefix;
+                    }
+
+                    console.log('紧凑选择器区域已更新，事件监听器已重新绑定');
+                }
+
                 // 更新页面标题
                 const newTitle = doc.querySelector('title');
                 if (newTitle) {
@@ -1719,6 +1757,31 @@
                 // 如果AJAX失败，回退到页面刷新方式
                 window.location.href = `/syncfolder?path=${encodeURIComponent(path)}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}`;
             });
+        }
+
+        // 更改前缀路径函数
+        function changePrefix() {
+            const apiKey = localStorage.getItem('apiKey');
+            if (!apiKey) {
+                showNotification('未授权：请重新登录', 'error');
+                window.location.href = "/login";
+                return;
+            }
+
+            const server = document.getElementById('alist-server').value;
+            const prefix = document.getElementById('prefix-path').value;
+
+            console.log('切换前缀路径:', prefix);
+            showNotification(`已切换到前缀: ${prefix}`, 'info');
+
+            // 重置到根目录，使用新的前缀
+            const path = "";
+
+            // 更新URL
+            const newUrl = `/syncfolder?path=${encodeURIComponent(path)}&apiKey=${encodeURIComponent(apiKey)}&server=${encodeURIComponent(server)}&prefix=${encodeURIComponent(prefix)}`;
+
+            // 刷新页面以应用新的前缀
+            window.location.href = newUrl;
         }
 
         // 同步文件夹函数
@@ -2086,11 +2149,41 @@
             }
         });
 
+        // 测试服务器切换功能（开发调试用）
+        window.testServerSwitch = function() {
+            const serverSelect = document.getElementById('alist-server');
+            const prefixSelect = document.getElementById('prefix-path');
+
+            console.log('=== 服务器切换测试 ===');
+            console.log('当前服务器选择器:', serverSelect ? serverSelect.value : 'null');
+            console.log('当前前缀选择器:', prefixSelect ? prefixSelect.value : 'null');
+            console.log('服务器选项数量:', serverSelect ? serverSelect.options.length : 0);
+            console.log('前缀选项数量:', prefixSelect ? prefixSelect.options.length : 0);
+
+            if (serverSelect) {
+                console.log('所有服务器选项:');
+                for (let i = 0; i < serverSelect.options.length; i++) {
+                    console.log(`  ${i}: ${serverSelect.options[i].text} (${serverSelect.options[i].value})`);
+                }
+            }
+
+            if (prefixSelect) {
+                console.log('所有前缀选项:');
+                for (let i = 0; i < prefixSelect.options.length; i++) {
+                    console.log(`  ${i}: ${prefixSelect.options[i].text} (${prefixSelect.options[i].value})`);
+                }
+            }
+        };
+
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             console.log('页面加载完成，开始初始化...');
             initThemeToggle(); // 初始化主题切换
             initializePage(); // 初始化页面
+
+            // 输出调试信息
+            console.log('SyncFolder页面已加载完成');
+            console.log('可使用 testServerSwitch() 查看服务器切换状态');
         });
     </script>
 </body>
