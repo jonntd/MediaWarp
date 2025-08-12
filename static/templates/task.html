@@ -1072,6 +1072,12 @@
                 <button class="action-btn" onclick="clearForm()" title="清空表单">
                     <i class="fas fa-eraser"></i>
                 </button>
+                <button class="action-btn" onclick="testPrefill()" title="测试预填充">
+                    <i class="fas fa-bug"></i>
+                </button>
+                <button class="action-btn" onclick="testEditModal()" title="测试编辑">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
         </div>
 
@@ -1909,34 +1915,61 @@
 
             // 打开编辑模态框
             window.openEditModal = function(task) {
+                console.log('打开编辑模态框，任务数据:', task);
+
                 const modal = document.getElementById('editModal');
                 const form = document.getElementById('editTaskForm');
                 const functionSelect = document.getElementById('editTaskFunction');
                 const customSyncConfig = document.getElementById('editCustomSyncConfig');
 
+                if (!modal) {
+                    console.error('未找到编辑模态框元素');
+                    return;
+                }
+
                 // 填充基本信息
-                document.getElementById('editTaskName').value = task.name;
-                document.getElementById('editTaskSchedule').value = task.schedule;
-                document.getElementById('editTaskDescription').value = task.description || '';
+                const nameField = document.getElementById('editTaskName');
+                const scheduleField = document.getElementById('editTaskSchedule');
+                const descriptionField = document.getElementById('editTaskDescription');
+
+                if (nameField) nameField.value = task.name;
+                if (scheduleField) scheduleField.value = task.schedule;
+                if (descriptionField) descriptionField.value = task.description || '';
+
+                console.log('基本信息已填充');
 
                 // 加载功能选项
-                loadFunctionOptions(functionSelect, task.function);
+                if (functionSelect) {
+                    loadFunctionOptions(functionSelect, task.function);
+                } else {
+                    console.error('未找到功能选择器');
+                }
 
                 // 如果是自定义同步任务，显示配置界面
                 if (task.task_type === 'custom_sync' && task.custom_params) {
-                    customSyncConfig.style.display = 'block';
-                    document.getElementById('editSourcePath').value = task.custom_params.source_path || '';
-                    document.getElementById('editTargetPath').value = task.custom_params.target_path || '';
-                    document.getElementById('editSyncOptions').value = (task.custom_params.sync_options || []).join(',');
-                    document.getElementById('editRclonePath').value = task.custom_params.rclone_path || 'rclone';
+                    console.log('显示自定义同步配置');
+                    if (customSyncConfig) customSyncConfig.style.display = 'block';
+
+                    const sourcePathField = document.getElementById('editSourcePath');
+                    const targetPathField = document.getElementById('editTargetPath');
+                    const syncOptionsField = document.getElementById('editSyncOptions');
+                    const rclonePathField = document.getElementById('editRclonePath');
+
+                    if (sourcePathField) sourcePathField.value = task.custom_params.source_path || '';
+                    if (targetPathField) targetPathField.value = task.custom_params.target_path || '';
+                    if (syncOptionsField) syncOptionsField.value = (task.custom_params.sync_options || []).join(',');
+                    if (rclonePathField) rclonePathField.value = task.custom_params.rclone_path || 'rclone';
                 } else {
-                    customSyncConfig.style.display = 'none';
+                    console.log('隐藏自定义同步配置');
+                    if (customSyncConfig) customSyncConfig.style.display = 'none';
                 }
 
                 // 存储原始任务名称用于API调用
-                form.dataset.originalName = task.name;
+                if (form) form.dataset.originalName = task.name;
 
+                // 显示模态框
                 modal.style.display = 'block';
+                console.log('编辑模态框已显示');
             }
 
             // 关闭编辑模态框
@@ -1975,6 +2008,9 @@
                         customOption.selected = true;
                     }
                     selectElement.appendChild(customOption);
+
+                    // 触发change事件以显示/隐藏自定义同步配置
+                    selectElement.dispatchEvent(new Event('change'));
                 })
                 .catch(error => {
                     console.error('Error loading functions:', error);
@@ -2093,68 +2129,7 @@
                 });
             });
 
-            // 监听功能选择变化
-            document.getElementById('editTaskFunction').addEventListener('change', function() {
-                const customSyncConfig = document.getElementById('editCustomSyncConfig');
-                if (this.value === 'custom_sync') {
-                    customSyncConfig.style.display = 'block';
-                } else {
-                    customSyncConfig.style.display = 'none';
-                }
-            });
 
-            // 处理编辑表单提交
-            document.getElementById('editTaskForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                const formData = new FormData(this);
-                const originalName = this.dataset.originalName;
-
-                // 构建任务数据
-                const taskData = {
-                    name: formData.get('name'),
-                    schedule: formData.get('schedule'),
-                    function: formData.get('function'),
-                    description: formData.get('description'),
-                    task_type: formData.get('function') === 'custom_sync' ? 'custom_sync' : 'predefined'
-                };
-
-                // 如果是自定义同步任务，添加自定义参数
-                if (formData.get('function') === 'custom_sync') {
-                    const syncOptions = formData.get('sync_options');
-                    taskData.custom_params = {
-                        source_path: formData.get('source_path'),
-                        target_path: formData.get('target_path'),
-                        sync_options: syncOptions ? syncOptions.split(',').map(opt => opt.trim()) : [],
-                        rclone_path: formData.get('rclone_path') || 'rclone'
-                    };
-                }
-
-                // 发送更新请求
-                fetch(`/task/${originalName}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': apiKey
-                    },
-                    body: JSON.stringify(taskData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        showMessage(data.error, 'error');
-                    } else {
-                        showMessage(`任务 "${data.task_name}" 已更新成功`, 'success');
-                        closeEditModal();
-                        fetchTasks(apiKey);
-                        fetchTaskManagerStatus(apiKey);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error updating task:', error);
-                    showMessage('更新任务失败', 'error');
-                });
-            });
 
             // 点击模态框外部关闭
             window.addEventListener('click', function(event) {
@@ -2164,26 +2139,25 @@
                 }
             });
 
-            // 点击模态框外部关闭
-            window.addEventListener('click', function(event) {
-                const modal = document.getElementById('editModal');
-                if (event.target === modal) {
-                    closeEditModal();
-                }
-            });
+
 
             // 检查并处理来自syncfolder页面的预填充配置
             function checkPendingTaskConfig() {
                 const pendingConfig = localStorage.getItem('pendingTaskConfig');
+                console.log('检查预填充配置:', pendingConfig);
+
                 if (pendingConfig) {
                     try {
                         const taskConfig = JSON.parse(pendingConfig);
+                        console.log('解析的任务配置:', taskConfig);
 
                         // 清除localStorage中的配置
                         localStorage.removeItem('pendingTaskConfig');
 
-                        // 预填充表单
-                        prefillTaskForm(taskConfig);
+                        // 延迟预填充，确保页面完全加载
+                        setTimeout(() => {
+                            prefillTaskForm(taskConfig);
+                        }, 500);
 
                         // 显示提示信息
                         showMessage('已从文件夹同步页面导入任务配置，请检查并提交', 'info');
@@ -2191,6 +2165,7 @@
                     } catch (error) {
                         console.error('解析预填充配置失败:', error);
                         localStorage.removeItem('pendingTaskConfig');
+                        showMessage('导入任务配置失败，请手动填写', 'error');
                     }
                 }
             }
@@ -2207,6 +2182,8 @@
                 if (nameField) {
                     nameField.value = taskConfig.name || '';
                     console.log('填充任务名称:', taskConfig.name);
+                } else {
+                    console.error('未找到任务名称字段');
                 }
 
                 if (scheduleField) {
@@ -2215,46 +2192,66 @@
 
                     // 尝试解析Cron表达式并设置时间选择器
                     parseAndSetSchedule(taskConfig.schedule || '');
+                } else {
+                    console.error('未找到计划字段');
                 }
 
-                if (functionField) {
-                    functionField.value = taskConfig.function || '';
-                    console.log('填充功能选择:', taskConfig.function);
+                // 等待功能选项加载完成后再设置
+                const waitForFunctionOptions = () => {
+                    if (functionField && functionField.options.length > 1) {
+                        functionField.value = taskConfig.function || 'custom_sync';
+                        console.log('填充功能选择:', taskConfig.function || 'custom_sync');
 
-                    // 触发功能选择变化事件
-                    functionField.dispatchEvent(new Event('change'));
-                }
+                        // 触发功能选择变化事件
+                        functionField.dispatchEvent(new Event('change'));
 
-                // 如果是自定义同步任务，填充自定义参数
-                if (taskConfig.task_type === 'custom_sync' && taskConfig.custom_params) {
-                    console.log('填充自定义同步参数:', taskConfig.custom_params);
-                    setTimeout(() => {
-                        const customParams = taskConfig.custom_params;
-
-                        const sourcePathField = document.getElementById('sourcePath');
-                        const targetPathField = document.getElementById('targetPath');
-                        const syncOptionsField = document.getElementById('syncOptions');
-                        const rclonePathField = document.getElementById('rclonePath');
-
-                        if (sourcePathField) {
-                            sourcePathField.value = customParams.source_path || '';
-                            console.log('填充源路径:', customParams.source_path);
+                        // 如果是自定义同步任务，填充自定义参数
+                        if (taskConfig.task_type === 'custom_sync' && taskConfig.custom_params) {
+                            setTimeout(() => {
+                                fillCustomSyncParams(taskConfig.custom_params);
+                            }, 300);
                         }
+                    } else {
+                        console.log('功能选项还未加载完成，等待中...');
+                        setTimeout(waitForFunctionOptions, 200);
+                    }
+                };
 
-                        if (targetPathField) {
-                            targetPathField.value = customParams.target_path || '';
-                            console.log('填充目标路径:', customParams.target_path);
-                        }
+                waitForFunctionOptions();
 
-                        // 同步选项和Rclone路径使用内置默认参数，不需要用户配置
-                        if (syncOptionsField) {
-                            syncOptionsField.value = 'min-size=100M,strm-format,sync-delete';
-                        }
+                // 填充自定义同步参数的独立函数
+                function fillCustomSyncParams(customParams) {
+                    console.log('填充自定义同步参数:', customParams);
 
-                        if (rclonePathField) {
-                            rclonePathField.value = 'rclone';
-                        }
-                    }, 200); // 增加延迟确保自定义同步配置界面已显示
+                    const sourcePathField = document.getElementById('sourcePath');
+                    const targetPathField = document.getElementById('targetPath');
+                    const syncOptionsField = document.getElementById('syncOptions');
+                    const rclonePathField = document.getElementById('rclonePath');
+
+                    if (sourcePathField) {
+                        sourcePathField.value = customParams.source_path || '';
+                        console.log('填充源路径:', customParams.source_path);
+                    } else {
+                        console.error('未找到源路径字段');
+                    }
+
+                    if (targetPathField) {
+                        targetPathField.value = customParams.target_path || '';
+                        console.log('填充目标路径:', customParams.target_path);
+                    } else {
+                        console.error('未找到目标路径字段');
+                    }
+
+                    // 同步选项和Rclone路径使用内置默认参数
+                    if (syncOptionsField) {
+                        syncOptionsField.value = 'min-size=100M,strm-format,sync-delete';
+                        console.log('填充同步选项: min-size=100M,strm-format,sync-delete');
+                    }
+
+                    if (rclonePathField) {
+                        rclonePathField.value = 'rclone';
+                        console.log('填充rclone路径: rclone');
+                    }
                 }
 
                 // 滚动到表单顶部
@@ -2263,6 +2260,47 @@
                     taskSection.scrollIntoView({ behavior: 'smooth' });
                 }
             }
+
+            // 测试预填充功能（开发调试用）
+            window.testPrefill = function() {
+                const testConfig = {
+                    name: "test_sync_task",
+                    schedule: "0 0 2 * * *",
+                    function: "custom_sync",
+                    task_type: "custom_sync",
+                    description: "测试同步任务",
+                    custom_params: {
+                        source_path: "115:/test/folder",
+                        target_path: "/data/media/test",
+                        sync_options: ["min-size=100M", "strm-format", "sync-delete"],
+                        rclone_path: "rclone"
+                    }
+                };
+
+                localStorage.setItem('pendingTaskConfig', JSON.stringify(testConfig));
+                console.log('测试配置已保存到localStorage，刷新页面查看效果');
+                location.reload();
+            };
+
+            // 测试编辑模态框（开发调试用）
+            window.testEditModal = function() {
+                const testTask = {
+                    name: "test_task",
+                    schedule: "0 0 2 * * *",
+                    function: "custom_sync",
+                    task_type: "custom_sync",
+                    description: "测试任务",
+                    custom_params: {
+                        source_path: "115:/test",
+                        target_path: "/data/test",
+                        sync_options: ["min-size=100M"],
+                        rclone_path: "rclone"
+                    }
+                };
+
+                console.log('打开测试编辑模态框');
+                openEditModal(testTask);
+            };
 
             // 登出功能
             window.logout = function() {

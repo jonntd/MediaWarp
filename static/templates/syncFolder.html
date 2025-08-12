@@ -1932,18 +1932,32 @@
 
         // 跳转到任务页面并预填充配置
         function goToTaskPageWithConfig(taskConfig) {
+            console.log('准备跳转到任务页面，配置:', taskConfig);
+
             // 将配置保存到localStorage
             localStorage.setItem('pendingTaskConfig', JSON.stringify(taskConfig));
+            console.log('配置已保存到localStorage');
 
             // 获取当前的API密钥
             const apiKey = localStorage.getItem('apiKey');
 
-            // 跳转到任务页面，携带API密钥参数
-            if (apiKey) {
-                window.location.href = `/task?apiKey=${encodeURIComponent(apiKey)}`;
-            } else {
-                window.location.href = '/task';
+            // 关闭模态框
+            const modal = document.querySelector('.copy-task-modal');
+            if (modal) {
+                modal.remove();
             }
+
+            // 显示跳转提示
+            showNotification('正在跳转到任务页面...', 'info');
+
+            // 跳转到任务页面，携带API密钥参数
+            setTimeout(() => {
+                if (apiKey) {
+                    window.location.href = `/task?apiKey=${encodeURIComponent(apiKey)}`;
+                } else {
+                    window.location.href = '/task';
+                }
+            }, 500);
         }
 
         // 复制配置到剪贴板
