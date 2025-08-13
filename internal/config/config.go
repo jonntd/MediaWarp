@@ -26,10 +26,9 @@ var (
 	Logger       LoggerSetting       // 日志设置
 	Web          WebSetting          // Web服务器设置
 	ClientFilter ClientFilterSetting // 客户端过滤设置
-	HTTPStrm     HTTPStrmSetting     // HTTPSTRM设置
-	AlistStrm    AlistStrmSetting    // AlistStrm设置
+	MediaSync    MediaSyncSetting    // 媒体同步设置（合并 HTTPStrm 和 RcloneSync）
 	Subtitle     SubtitleSetting     // 字幕设置
-    Debug bool // 是否开启调试模式
+	Debug        bool                // 是否开启调试模式
 )
 
 // 获取版本信息
@@ -134,11 +133,8 @@ func loadConfig(path string) error {
 	if err := viper.UnmarshalKey("ClientFilter", &ClientFilter); err != nil {
 		return fmt.Errorf("ClientFilterSetting  解析失败, %v", err)
 	}
-	if err := viper.UnmarshalKey("HTTPStrm", &HTTPStrm); err != nil {
-		return fmt.Errorf("HTTPStrmSetting  解析失败, %v", err)
-	}
-	if err := viper.UnmarshalKey("AlistStrm", &AlistStrm); err != nil {
-		return fmt.Errorf("AlistStrmSetting  解析失败, %v", err)
+	if err := viper.UnmarshalKey("MediaSync", &MediaSync); err != nil {
+		return fmt.Errorf("MediaSyncSetting 解析失败, %v", err)
 	}
 	if err := viper.UnmarshalKey("Subtitle", &Subtitle); err != nil {
 		return fmt.Errorf("SubtitleSetting  解析失败, %v", err)

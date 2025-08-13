@@ -107,12 +107,13 @@ func cleanupLogs() {
 func syncMediaLibrary() {
 	logging.Info("开始同步媒体库...")
 
-	// 调用现有的同步功能
-	if err := runRcloneSync("/media", "115:/media", 3); err != nil {
-		logging.Error("媒体库同步失败:", err)
-	} else {
-		logging.Info("媒体库同步完成")
-	}
+	// 调用现有的同步功能（需要根据实际配置调整）
+	logging.Info("媒体库同步功能需要根据实际配置进行调整")
+	// 示例：if err := runRcloneSync("/media", "remote:/media", 3); err != nil {
+	//     logging.Error("媒体库同步失败:", err)
+	// } else {
+	//     logging.Info("媒体库同步完成")
+	// }
 }
 
 // 健康检查任务
@@ -294,17 +295,9 @@ func executeCustomSyncWithTaskManager(taskName string, params *CustomSyncParams)
 }
 
 // 自定义函数（保持向后兼容）
-func customFunction1() {
-	cleanupLogs()
-}
-
-func customFunction2() {
-	syncMediaLibrary()
-}
-
-func customFunction3() {
-	healthCheckTask()
-}
+func customFunction1() { cleanupLogs() }
+func customFunction2() { syncMediaLibrary() }
+func customFunction3() { healthCheckTask() }
 
 // 包装函数，确保所有任务都通过taskManager执行
 func wrapWithTaskManager(taskName string, taskFunc func()) func() {

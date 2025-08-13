@@ -3,7 +3,6 @@ package cache
 import (
 	"MediaWarp/constants"
 	"MediaWarp/internal/service/emby"
-	"MediaWarp/internal/service/jellyfin"
 	"crypto/md5"
 	"encoding/hex"
 	"sync"
@@ -24,10 +23,9 @@ type PlaybackInfoCache struct {
 
 // CachedItemInfo 缓存的媒体项信息
 type CachedItemInfo struct {
-	EmbyItem     *emby.EmbyResponse `json:"emby_item,omitempty"`
-	JellyfinItem *jellyfin.Response `json:"jellyfin_item,omitempty"`
-	Timestamp    time.Time          `json:"timestamp"`
-	TTL          time.Duration      `json:"ttl"`
+	EmbyItem  *emby.EmbyResponse `json:"emby_item,omitempty"`
+	Timestamp time.Time          `json:"timestamp"`
+	TTL       time.Duration      `json:"ttl"`
 }
 
 // CachedStrmType 缓存的Strm文件类型
@@ -49,10 +47,9 @@ type CachedAlistLink struct {
 
 // CachedPlaybackInfo 缓存的完整播放信息
 type CachedPlaybackInfo struct {
-	EmbyResponse     *emby.PlaybackInfoResponse     `json:"emby_response,omitempty"`
-	JellyfinResponse *jellyfin.PlaybackInfoResponse `json:"jellyfin_response,omitempty"`
-	Timestamp        time.Time                      `json:"timestamp"`
-	TTL              time.Duration                  `json:"ttl"`
+	EmbyResponse *emby.PlaybackInfoResponse `json:"emby_response,omitempty"`
+	Timestamp    time.Time                  `json:"timestamp"`
+	TTL          time.Duration              `json:"ttl"`
 }
 
 // CacheStats 缓存统计信息
@@ -133,16 +130,15 @@ func (pic *PlaybackInfoCache) GetItemInfo(mediaSourceID string) (*CachedItemInfo
 }
 
 // SetItemInfo 设置媒体项信息缓存
-func (pic *PlaybackInfoCache) SetItemInfo(mediaSourceID string, embyItem *emby.EmbyResponse, jellyfinItem *jellyfin.Response, ttl time.Duration) {
+func (pic *PlaybackInfoCache) SetItemInfo(mediaSourceID string, embyItem *emby.EmbyResponse, ttl time.Duration) {
 	pic.mutex.Lock()
 	defer pic.mutex.Unlock()
 
 	key := pic.generateKey("item", mediaSourceID)
 	pic.itemInfoCache[key] = &CachedItemInfo{
-		EmbyItem:     embyItem,
-		JellyfinItem: jellyfinItem,
-		Timestamp:    time.Now(),
-		TTL:          ttl,
+		EmbyItem:  embyItem,
+		Timestamp: time.Now(),
+		TTL:       ttl,
 	}
 }
 
@@ -221,16 +217,15 @@ func (pic *PlaybackInfoCache) GetPlaybackInfo(mediaSourceID string) (*CachedPlay
 }
 
 // SetPlaybackInfo 设置完整播放信息缓存
-func (pic *PlaybackInfoCache) SetPlaybackInfo(mediaSourceID string, embyResponse *emby.PlaybackInfoResponse, jellyfinResponse *jellyfin.PlaybackInfoResponse, ttl time.Duration) {
+func (pic *PlaybackInfoCache) SetPlaybackInfo(mediaSourceID string, embyResponse *emby.PlaybackInfoResponse, ttl time.Duration) {
 	pic.mutex.Lock()
 	defer pic.mutex.Unlock()
 
 	key := pic.generateKey("playback", mediaSourceID)
 	pic.playbackCache[key] = &CachedPlaybackInfo{
-		EmbyResponse:     embyResponse,
-		JellyfinResponse: jellyfinResponse,
-		Timestamp:        time.Now(),
-		TTL:              ttl,
+		EmbyResponse: embyResponse,
+		Timestamp:    time.Now(),
+		TTL:          ttl,
 	}
 }
 

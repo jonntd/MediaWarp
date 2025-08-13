@@ -54,11 +54,12 @@ func InitRouter() *gin.Engine {
 		}
 
 	}
-	// 根路径重定向到登录页面
+	// 根路径重定向到 Emby 服务器
 	ginR.GET("/", func(ctx *gin.Context) {
-		ctx.Redirect(http.StatusFound, "/login")
+		ctx.Redirect(http.StatusFound, "/web/index.html")
 	})
 
+	// 登录页面路由
 	ginR.GET("/login", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "login.html", gin.H{})
 	})

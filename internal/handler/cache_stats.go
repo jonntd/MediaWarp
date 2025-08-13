@@ -227,28 +227,11 @@ func RegisterCacheStatsRoutes(router *gin.Engine) {
 func (h *CacheStatsHandler) GetWarmupStats(ctx *gin.Context) {
 	logging.Debug("======= GetWarmupStats =======")
 
-	if cache.GlobalCacheWarmer == nil {
-		ctx.JSON(http.StatusOK, gin.H{
-			"enabled": false,
-			"message": "缓存预热器未启用",
-		})
-		return
-	}
-
-	stats := cache.GlobalCacheWarmer.GetWarmupStats()
-
-	response := gin.H{
-		"enabled":                 true,
-		"total_warmup_requests":   stats.TotalWarmupRequests,
-		"successful_warmups":      stats.SuccessfulWarmups,
-		"failed_warmups":          stats.FailedWarmups,
-		"last_warmup_time":        stats.LastWarmupTime,
-		"average_warmup_duration": stats.AverageWarmupDuration.Milliseconds(),
-		"success_rate":            float64(stats.SuccessfulWarmups) / float64(stats.TotalWarmupRequests) * 100,
-		"timestamp":               time.Now(),
-	}
-
-	ctx.JSON(http.StatusOK, response)
+	// 缓存预热功能已移除
+	ctx.JSON(http.StatusOK, gin.H{
+		"enabled": false,
+		"message": "缓存预热功能已移除",
+	})
 }
 
 // CacheMetrics 缓存性能指标
@@ -309,7 +292,7 @@ func (h *CacheStatsHandler) GetOptimizationRecommendations(ctx *gin.Context) {
 		impact = "significant"
 	} else if hitRates.OverallHitRate < 80 {
 		recommendations = append(recommendations, "Fine-tune cache eviction policies")
-		recommendations = append(recommendations, "Monitor cache size and memory usage")
+		recommendations = append(recommendations, "定期检查缓存大小和内存使用情况")
 		priority = "medium"
 		impact = "moderate"
 	}

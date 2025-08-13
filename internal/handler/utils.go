@@ -31,24 +31,14 @@ func responseModifyCreater(proxy *httputil.ReverseProxy, modifyResponseFN func(r
 //
 // 返回 Strm 文件类型和一个可选配置
 func recgonizeStrmFileType(strmFilePath string) (constants.StrmFileType, any, any) {
-	if config.HTTPStrm.Enable {
-		for _, prefix := range config.HTTPStrm.PrefixList {
-			if strings.HasPrefix(strmFilePath, prefix) {
-				logging.Debug(strmFilePath + " 成功匹配路径：" + prefix + "，Strm 类型：" + string(constants.HTTPStrm))
-				return constants.HTTPStrm, nil, nil
-			}
+	// HTTPStrm 检查 - 检查是否匹配任何 MediaSync 服务器的本地路径
+	for _, server := range config.MediaSync {
+		if strings.HasPrefix(strmFilePath, server.LocalPath) {
+			logging.Debug(strmFilePath + " 成功匹配服务器：" + server.Name + "，路径：" + server.LocalPath + "，Strm 类型：" + string(constants.HTTPStrm))
+			return constants.HTTPStrm, nil, nil
 		}
 	}
-	if config.AlistStrm.Enable {
-		for _, alistStrmConfig := range config.AlistStrm.List {
-			for _, prefix := range alistStrmConfig.PrefixList {
-				if strings.HasPrefix(strmFilePath, prefix) {
-					logging.Debug(strmFilePath + " 成功匹配路径：" + prefix + "，Strm 类型：" + string(constants.AlistStrm) + "，AlistServer 地址：" + alistStrmConfig.ADDR)
-					return constants.AlistStrm, prefix, alistStrmConfig.ADDR
-				}
-			}
-		}
-	}
+	// Alist support has been removed
 	logging.Debug(strmFilePath + " 未匹配任何路径，Strm 类型：" + string(constants.UnknownStrm))
 	return constants.UnknownStrm, nil, nil
 }

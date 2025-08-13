@@ -5,9 +5,7 @@ import (
 	"MediaWarp/internal/cache"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
-	"MediaWarp/internal/service"
 	"MediaWarp/internal/service/emby"
-	"MediaWarp/internal/service/jellyfin"
 	"fmt"
 	"net/http"
 	"strings"
@@ -18,10 +16,9 @@ import (
 
 // OptimizedPlaybackHandler 优化后的播放处理器
 type OptimizedPlaybackHandler struct {
-	embyServer     *emby.EmbyServer
-	jellyfinServer *jellyfin.Jellyfin
-	cache          *cache.PlaybackInfoCache
-	serverType     string // "emby" or "jellyfin"
+	embyServer *emby.EmbyServer
+	cache      *cache.PlaybackInfoCache
+	serverType string // "emby" or "jellyfin"
 }
 
 // NewOptimizedPlaybackHandler 创建优化的播放处理器
@@ -35,7 +32,8 @@ func NewOptimizedPlaybackHandler(serverType string) *OptimizedPlaybackHandler {
 	case "emby":
 		handler.embyServer = emby.New(config.MediaServer.ADDR, config.MediaServer.AUTH)
 	case "jellyfin":
-		handler.jellyfinServer = jellyfin.New(config.MediaServer.ADDR, config.MediaServer.AUTH)
+		// Jellyfin support has been removed
+		logging.Warning("Jellyfin support is not available")
 	}
 
 	return handler
@@ -150,7 +148,8 @@ func (h *OptimizedPlaybackHandler) getItemInfoOnce(mediaSourceID string) (interf
 		if h.serverType == "emby" {
 			return cachedItem.EmbyItem, nil
 		}
-		return cachedItem.JellyfinItem, nil
+		// Jellyfin support has been removed
+		return nil, fmt.Errorf("jellyfin support not available")
 	}
 
 	// 缓存未命中，从上游获取
@@ -164,14 +163,11 @@ func (h *OptimizedPlaybackHandler) getItemInfoOnce(mediaSourceID string) (interf
 		itemResponse, err = h.embyServer.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
 		if err == nil {
 			// 缓存Emby响应（30分钟TTL）
-			h.cache.SetItemInfo(mediaSourceID, itemResponse.(*emby.EmbyResponse), nil, 30*time.Minute)
+			h.cache.SetItemInfo(mediaSourceID, itemResponse.(*emby.EmbyResponse), 30*time.Minute)
 		}
 	case "jellyfin":
-		itemResponse, err = h.jellyfinServer.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
-		if err == nil {
-			// 缓存Jellyfin响应（30分钟TTL）
-			h.cache.SetItemInfo(mediaSourceID, nil, itemResponse.(*jellyfin.Response), 30*time.Minute)
-		}
+		// Jellyfin support has been removed
+		return nil, fmt.Errorf("jellyfin support not available")
 	default:
 		return nil, fmt.Errorf("unsupported server type: %s", h.serverType)
 	}
@@ -205,7 +201,8 @@ func (h *OptimizedPlaybackHandler) getItemInfoFromCacheOrFetch(mediaSourceID str
 		if h.serverType == "emby" {
 			return cachedItem.EmbyItem, nil
 		}
-		return cachedItem.JellyfinItem, nil
+		// Jellyfin support has been removed
+		return nil, fmt.Errorf("jellyfin support not available")
 	}
 
 	// 缓存未命中，重新获取
@@ -255,9 +252,8 @@ func (h *OptimizedPlaybackHandler) getAlistDownloadURL(filePath, alistServerAddr
 	// 检查缓存
 	if cachedLink, found := h.cache.GetAlistLink(filePath); found {
 		logging.Info("Alist链接缓存命中：", filePath)
-		if config.AlistStrm.RawURL {
-			return cachedLink.RawURL, nil
-		}
+		// Alist support has been removed
+		return "", fmt.Errorf("alist support not available")
 
 		downloadURL := fmt.Sprintf("%s/d%s", alistServerAddr, filePath)
 		if cachedLink.Sign != "" {
@@ -266,34 +262,9 @@ func (h *OptimizedPlaybackHandler) getAlistDownloadURL(filePath, alistServerAddr
 		return downloadURL, nil
 	}
 
-	// 缓存未命中，从Alist获取
-	logging.Info("Alist链接缓存未命中，从Alist获取：", filePath)
-
-	alistServer, err := service.GetAlistServer(alistServerAddr)
-	if err != nil {
-		return "", fmt.Errorf("获取AlistServer失败: %w", err)
-	}
-
-	fsGetData, err := alistServer.FsGet(filePath)
-	if err != nil {
-		return "", fmt.Errorf("请求FsGet失败: %w", err)
-	}
-
-	// 缓存链接信息（5分钟TTL，考虑签名过期）
-	h.cache.SetAlistLink(filePath, "", fsGetData.Sign, fsGetData.RawURL, 5*time.Minute)
-
-	// 构建下载URL
-	var redirectURL string
-	if config.AlistStrm.RawURL {
-		redirectURL = fsGetData.RawURL
-	} else {
-		redirectURL = fmt.Sprintf("%s/d%s", alistServerAddr, filePath)
-		if fsGetData.Sign != "" {
-			redirectURL += "?sign=" + fsGetData.Sign
-		}
-	}
-
-	return redirectURL, nil
+	// Alist service has been removed
+	logging.Warning("Alist service is not available")
+	return "", fmt.Errorf("alist service not available")
 }
 
 // 辅助方法
@@ -318,9 +289,9 @@ func (h *OptimizedPlaybackHandler) getItemPath(itemInfo interface{}) string {
 			return *embyItem.Items[0].Path
 		}
 	case "jellyfin":
-		if jellyfinItem, ok := itemInfo.(*jellyfin.Response); ok && len(jellyfinItem.Items) > 0 {
-			return *jellyfinItem.Items[0].Path
-		}
+		// Jellyfin support has been removed
+		logging.Warning("Jellyfin support is not available")
+		return ""
 	}
 	return ""
 }
@@ -346,20 +317,20 @@ func (h *OptimizedPlaybackHandler) cachePlaybackInfo(mediaSourceID string, playb
 	switch h.serverType {
 	case "emby":
 		if embyResponse, ok := playbackInfo.(*emby.PlaybackInfoResponse); ok {
-			h.cache.SetPlaybackInfo(mediaSourceID, embyResponse, nil, 15*time.Minute)
+			h.cache.SetPlaybackInfo(mediaSourceID, embyResponse, 15*time.Minute)
 		}
 	case "jellyfin":
-		if jellyfinResponse, ok := playbackInfo.(*jellyfin.PlaybackInfoResponse); ok {
-			h.cache.SetPlaybackInfo(mediaSourceID, nil, jellyfinResponse, 15*time.Minute)
-		}
+		// Jellyfin support has been removed
+		logging.Warning("Jellyfin support is not available")
 	}
 }
 
 func (h *OptimizedPlaybackHandler) returnCachedPlaybackInfo(ctx *gin.Context, cachedPlayback *cache.CachedPlaybackInfo) {
 	if h.serverType == "emby" && cachedPlayback.EmbyResponse != nil {
 		ctx.JSON(http.StatusOK, cachedPlayback.EmbyResponse)
-	} else if h.serverType == "jellyfin" && cachedPlayback.JellyfinResponse != nil {
-		ctx.JSON(http.StatusOK, cachedPlayback.JellyfinResponse)
+	} else if h.serverType == "jellyfin" {
+		// Jellyfin support has been removed
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Jellyfin support not available"})
 	} else {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid cached playback info"})
 	}

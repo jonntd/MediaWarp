@@ -5,9 +5,11 @@ import (
 	"MediaWarp/internal/cache"
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
+	"MediaWarp/internal/rclone"
 	"MediaWarp/internal/service/emby"
 	"MediaWarp/utils"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -105,6 +108,10 @@ func NewEmbyServerHandler(addr string, apiKey string) (*EmbyServerHandler, error
 				Regexp:  constants.EmbyRegexp.Router.StreamStrmHandler,
 				Handler: embyServerHandler.VideosHandler,
 			},
+			{
+				Regexp:  regexp.MustCompile(`(?i)^(/emby)?/Users/[^/]+/Items/\d+$`),
+				Handler: embyServerHandler.ItemDetailHandler,
+			},
 		}
 
 		if config.Web.Enable {
@@ -178,28 +185,20 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 			itemResponse = cachedItem.EmbyItem
 		} else {
 			logging.Info("媒体项信息缓存未命中，从上游获取：", mediaSourceID)
-			// 使用请求去重器避免重复API调用
-			result, err := cache.GlobalRequestDeduplicator.Do(
-				"item_info_"+mediaSourceID,
-				func() (interface{}, error) {
-					return embyServerHandler.server.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
-				},
-			)
+			// 直接调用API（请求去重功能已移除）
+			result, err := embyServerHandler.server.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
 			if err != nil {
 				logging.Warning("请求 ItemsServiceQueryItem 失败：", err)
 				continue
 			}
-			itemResponse = result.(*emby.EmbyResponse)
+			itemResponse = result
 			// 缓存结果（30分钟TTL）
-			embyServerHandler.cache.SetItemInfo(mediaSourceID, itemResponse, nil, 30*time.Minute)
+			embyServerHandler.cache.SetItemInfo(mediaSourceID, itemResponse, 30*time.Minute)
 		}
 
 		item = itemResponse.Items[0]
 
-		// 触发缓存预热
-		if cache.GlobalCacheWarmer != nil {
-			cache.GlobalCacheWarmer.OnAccessWarmup(mediaSourceID)
-		}
+		// 缓存预热功能已移除
 
 		// 2. 尝试从缓存获取Strm文件类型
 		var strmFileType constants.StrmFileType
@@ -216,33 +215,14 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 			embyServerHandler.cache.SetStrmType(*item.Path, strmFileType, strmOption, 1*time.Hour)
 		}
 		switch strmFileType {
-		case constants.HTTPStrm: // HTTPStrm 设置支持直链播放并且支持转码
-			if !config.HTTPStrm.TransCode {
-				*playbackInfoResponse.MediaSources[index].SupportsDirectPlay = true
-				*playbackInfoResponse.MediaSources[index].SupportsDirectStream = true
-				playbackInfoResponse.MediaSources[index].TranscodingURL = nil
-				playbackInfoResponse.MediaSources[index].TranscodingSubProtocol = nil
-				playbackInfoResponse.MediaSources[index].TranscodingContainer = nil
-				if mediasource.DirectStreamURL != nil {
-					apikeypair, err := utils.ResolveEmbyAPIKVPairs(*mediasource.DirectStreamURL)
-					if err != nil {
-						logging.Warning("解析API键值对失败：", err)
-						continue
-					}
-					directStreamURL := fmt.Sprintf("/videos/%s/stream?MediaSourceId=%s&Static=true&%s", *mediasource.ItemID, *mediasource.ID, apikeypair)
-					playbackInfoResponse.MediaSources[index].DirectStreamURL = &directStreamURL
-					logging.Info(*mediasource.Name, "强制禁止转码，直链播放链接为:", directStreamURL)
-				}
-			}
-
-		case constants.AlistStrm: // AlistStm 设置支持直链播放并且禁止转码
-			if !config.AlistStrm.TransCode {
-				*playbackInfoResponse.MediaSources[index].SupportsDirectPlay = true
-				*playbackInfoResponse.MediaSources[index].SupportsDirectStream = true
-				*playbackInfoResponse.MediaSources[index].SupportsTranscoding = false
-				playbackInfoResponse.MediaSources[index].TranscodingURL = nil
-				playbackInfoResponse.MediaSources[index].TranscodingSubProtocol = nil
-				playbackInfoResponse.MediaSources[index].TranscodingContainer = nil
+		case constants.HTTPStrm: // HTTPStrm 设置支持直链播放并且强制关闭转码
+			// 默认强制关闭转码
+			*playbackInfoResponse.MediaSources[index].SupportsDirectPlay = true
+			*playbackInfoResponse.MediaSources[index].SupportsDirectStream = true
+			playbackInfoResponse.MediaSources[index].TranscodingURL = nil
+			playbackInfoResponse.MediaSources[index].TranscodingSubProtocol = nil
+			playbackInfoResponse.MediaSources[index].TranscodingContainer = nil
+			if mediasource.DirectStreamURL != nil && mediasource.ItemID != nil && mediasource.ID != nil {
 				apikeypair, err := utils.ResolveEmbyAPIKVPairs(*mediasource.DirectStreamURL)
 				if err != nil {
 					logging.Warning("解析API键值对失败：", err)
@@ -250,12 +230,16 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 				}
 				directStreamURL := fmt.Sprintf("/videos/%s/stream?MediaSourceId=%s&Static=true&%s", *mediasource.ItemID, *mediasource.ID, apikeypair)
 				playbackInfoResponse.MediaSources[index].DirectStreamURL = &directStreamURL
-				container := strings.TrimPrefix(path.Ext(*mediasource.Path), ".")
-				playbackInfoResponse.MediaSources[index].Container = &container
-				logging.Info(*mediasource.Name, "强制禁止转码，直链播放链接为:", directStreamURL, "，容器为: %s", container)
-			} else {
-				logging.Info(*mediasource.Name, "保持原有转码设置")
+				if mediasource.Name != nil {
+					logging.Info(*mediasource.Name, "强制禁止转码，直链播放链接为:", directStreamURL)
+				} else {
+					logging.Info("强制禁止转码，直链播放链接为:", directStreamURL)
+				}
 			}
+
+		case constants.AlistStrm: // AlistStrm support has been removed
+			// Alist support has been removed, treat as unknown
+			logging.Warning("AlistStrm support has been removed for:", *mediasource.Name)
 
 			// if playbackInfoResponse.MediaSources[index].Size == nil {
 			// 	alistServer, err := service.GetAlistServer(opt.(string))
@@ -329,15 +313,12 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 			return
 		}
 		// 缓存结果（30分钟TTL）
-		embyServerHandler.cache.SetItemInfo(cleanMediaSourceID, itemResponse, nil, 30*time.Minute)
+		embyServerHandler.cache.SetItemInfo(cleanMediaSourceID, itemResponse, 30*time.Minute)
 	}
 
 	item = itemResponse.Items[0]
 
-	// 触发缓存预热
-	if cache.GlobalCacheWarmer != nil {
-		cache.GlobalCacheWarmer.OnAccessWarmup(cleanMediaSourceID)
-	}
+	// 缓存预热功能已移除
 
 	if !strings.HasSuffix(strings.ToLower(*item.Path), ".strm") { // 不是 Strm 文件
 		logging.Debug("播放本地视频：" + *item.Path + "，不进行处理")
@@ -362,14 +343,90 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 	logging.Debug("请求 strmFileType:", strmFileType)
 	for _, mediasource := range item.MediaSources {
 		if *mediasource.ID == mediaSourceID { // EmbyServer >= 4.9 返回的ID带有前缀mediasource_
+			logging.Debug("找到匹配的媒体源，ID:", *mediasource.ID)
+			logging.Debug("媒体源协议:", *mediasource.Protocol)
+			logging.Debug("媒体源路径:", *mediasource.Path)
 			switch strmFileType {
 			case constants.HTTPStrm:
-				if *mediasource.Protocol == emby.HTTP {
-					logging.Info("HTTPStrm 重定向至：", *mediasource.Path)
-					ctx.Redirect(http.StatusFound, *mediasource.Path)
+				logging.Debug("处理 HTTPStrm 类型")
+				if mediasource.Path != nil {
+					path := *mediasource.Path
+					logging.Debug("HTTPStrm 路径:", path)
+
+					// 检查是否是 rclone 格式 (如 "115://xxx")
+					if strings.Contains(path, "://") && !strings.HasPrefix(path, "http://") && !strings.HasPrefix(path, "https://") {
+						logging.Info("检测到 rclone 格式路径，需要获取真实下载链接:", path)
+
+						// 使用 rclone 获取真实下载链接
+						userAgent := ctx.Request.Header.Get("User-Agent")
+						logging.Info("🔍 获取下载链接 - User-Agent:", userAgent)
+						logging.Info("🔍 播放User-Agent详细信息:")
+						logging.Info("🔍 User-Agent长度:", len(userAgent))
+						logging.Info("🔍 User-Agent内容:", fmt.Sprintf("'%s'", userAgent))
+						logging.Info("🔍 获取下载链接 - 完整请求头:", ctx.Request.Header)
+						cacheKey := path + "|" + userAgent
+						logging.Info("🔑 缓存键:", cacheKey)
+
+						var redirectURL string
+						// 尝试从缓存获取URL
+						if cachedItem, exists := redirectURLCache.Get(cacheKey); exists {
+							cachedURL := cachedItem.URL
+							if strings.HasSuffix(cachedURL, "#PRELOADED") {
+								redirectURL = strings.TrimSuffix(cachedURL, "#PRELOADED")
+								logging.Info("🚀 从预加载缓存获取重定向URL：", redirectURL)
+							} else {
+								redirectURL = cachedURL
+								logging.Info("✅ 从普通缓存获取重定向URL：", redirectURL)
+							}
+						} else {
+							logging.Info("❌ 缓存未命中，需要调用 rclone")
+							// 使用内部 rclone 调用获取下载链接
+							logging.Info("使用内部 rclone 调用获取下载链接:", path)
+							var err error
+							redirectURL, err = rclone.GetDownloadURL(path, userAgent)
+							if err != nil {
+								logging.Warning("内部 rclone 调用失败：", err)
+								embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
+								return
+							}
+
+							// 🔍 详细分析下载链接
+							logging.Info("🔗 获取到的下载链接:", redirectURL)
+							if strings.Contains(userAgent, "VidHub") {
+								logging.Info("🎯 VidHub 客户端请求")
+								logging.Info("🔍 链接长度:", len(redirectURL))
+								logging.Info("🔍 链接域名:", extractDomain(redirectURL))
+								logging.Info("🔍 链接参数数量:", countURLParams(redirectURL))
+							}
+
+							// 缓存结果（检查是否覆盖预加载缓存）
+							expireTime := time.Now().Add(defaultCacheTime)
+							if existingItem, exists := redirectURLCache.Get(cacheKey); exists && strings.HasSuffix(existingItem.URL, "#PRELOADED") {
+								logging.Info("⚠️ 跳过缓存设置，保留预加载缓存")
+							} else {
+								redirectURLCache.Set(cacheKey, redirectURL, expireTime)
+								logging.Info("缓存重定向URL，过期时间：", expireTime)
+							}
+						}
+
+						logging.Info("HTTPStrm rclone 重定向至：", redirectURL)
+						ctx.Redirect(http.StatusFound, redirectURL)
+					} else {
+						// 直接的 HTTP URL
+						logging.Info("HTTPStrm 直接重定向至：", path)
+						ctx.Redirect(http.StatusFound, path)
+					}
+				} else {
+					logging.Warning("HTTPStrm 媒体源路径为空")
+					embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 				}
 				return
 			case constants.AlistStrm: // 无需判断 *mediasource.Container 是否以Strm结尾，当 AlistStrm 存储的位置有对应的文件时，*mediasource.Container 会被设置为文件后缀
+				if mediasource.Path == nil {
+					logging.Warning("AlistStrm 媒体源路径为空")
+					embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
+					return
+				}
 				desiredPath := strings.Replace(*mediasource.Path, opt.(string), "", 1)
 				desiredPath = ensureLeadingSlash(desiredPath)
 				logging.Debug("请求 desiredPath:", desiredPath)
@@ -386,29 +443,11 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 					logging.Info("从缓存获取重定向URL：", cachedItem.URL)
 					redirectURL = cachedItem.URL
 				} else {
-					// 缓存不存在或已过期，执行rclone命令获取URL
-					// 从 downloadurl 中提取远程名称（如 "115:"）
-					colonIndex := strings.Index(downloadurl, ":")
-					if colonIndex == -1 {
-						logging.Warning("无效的 downloadurl 格式：", downloadurl)
-						return
-					}
-					remoteName := downloadurl[:colonIndex+1] // 包含冒号，如 "115:"
-
-					cmd := exec.CommandContext(ctx, "rclone", "backend", "get-download-url", remoteName, downloadurl,
-						"-o", fmt.Sprintf("user-agent=%s", userAgent))
-					var stdoutBuf, stderrBuf bytes.Buffer
-					cmd.Stdout = &stdoutBuf
-					cmd.Stderr = &stderrBuf
-					fmt.Printf("Running command: %s\n", cmd.String())
-					err := cmd.Run()
+					// 缓存不存在或已过期，使用内部 rclone 调用获取URL
+					logging.Info("使用内部 rclone 调用获取下载链接:", downloadurl)
+					redirectURL, err := rclone.GetDownloadURL(downloadurl, userAgent)
 					if err != nil {
-						logging.Warning("执行 rclone command 失败：", err)
-						return
-					}
-					logging.Info("stdoutBuf：", stdoutBuf.String())
-					redirectURL = strings.TrimSpace(stdoutBuf.String())
-					if redirectURL == "" {
+						logging.Warning("内部 rclone 调用失败：", err)
 						return
 					}
 					// 将新获取的URL存入缓存
@@ -466,6 +505,7 @@ func (embyServerHandler *EmbyServerHandler) ModifyBaseHtmlPlayer(rw *http.Respon
 
 // 修改首页函数
 func (embyServerHandler *EmbyServerHandler) ModifyIndex(rw *http.Response) error {
+	logging.Info("ModifyIndex 开始处理")
 	var (
 		htmlFilePath string = path.Join(config.CostomDir(), "index.html")
 		htmlContent  []byte
@@ -475,10 +515,14 @@ func (embyServerHandler *EmbyServerHandler) ModifyIndex(rw *http.Response) error
 
 	defer rw.Body.Close()  // 无论哪种情况，最终都要确保原 Body 被关闭，避免内存泄漏
 	if !config.Web.Index { // 从上游获取响应体
+		logging.Info("ModifyIndex 从上游获取响应体")
 		if htmlContent, err = readBody(rw); err != nil {
+			logging.Error("ModifyIndex readBody 失败：", err)
 			return err
 		}
+		logging.Info("ModifyIndex readBody 成功，内容长度：", len(htmlContent))
 	} else { // 从本地文件读取index.html
+		logging.Info("ModifyIndex 从本地文件读取 index.html")
 		if htmlContent, err = os.ReadFile(htmlFilePath); err != nil {
 			logging.Warning("读取文件内容出错，错误信息：", err)
 			return err
@@ -510,16 +554,169 @@ func (embyServerHandler *EmbyServerHandler) ModifyIndex(rw *http.Response) error
 	if config.Web.VideoTogether { // VideoTogether
 		addHEAD = append(addHEAD, []byte(`<script src="https://2gether.video/release/extension.website.user.js"></script>`+"\n")...)
 	}
+	logging.Info("ModifyIndex 开始替换 HTML 内容")
 	htmlContent = bytes.Replace(htmlContent, []byte("</head>"), append(addHEAD, []byte("</head>")...), 1) // 将添加HEAD
-	return updateBody(rw, htmlContent)
+	logging.Info("ModifyIndex HTML 替换完成，开始 updateBody")
+	err = updateBody(rw, htmlContent)
+	if err != nil {
+		logging.Error("ModifyIndex updateBody 失败：", err)
+		return err
+	}
+	logging.Info("ModifyIndex 处理完成")
+	return nil
+}
+
+// ItemDetailHandler 处理详情页请求并预加载下载链接
+func (embyServerHandler *EmbyServerHandler) ItemDetailHandler(ctx *gin.Context) {
+	logging.Debug("======= ItemDetailHandler ======= ")
+
+	// 先正常代理请求
+	embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
+
+	// 异步预加载下载链接
+	go func() {
+		// 从URL提取itemId
+		path := ctx.Request.URL.Path
+		parts := strings.Split(path, "/")
+		var itemId string
+		for i, part := range parts {
+			if part == "Items" && i+1 < len(parts) {
+				itemId = parts[i+1]
+				break
+			}
+		}
+
+		if itemId == "" {
+			return
+		}
+
+		logging.Info("🚀 详情页预加载开始，ItemId:", itemId)
+
+		// 获取媒体项信息
+		itemResponse, err := embyServerHandler.server.ItemsServiceQueryItem(itemId, 1, "Path,MediaSources")
+		if err != nil {
+			logging.Warning("预加载获取媒体项信息失败：", err)
+			return
+		}
+
+		if len(itemResponse.Items) == 0 {
+			return
+		}
+
+		item := itemResponse.Items[0]
+		if item.Path == nil {
+			return
+		}
+
+		// 获取媒体源路径
+		if len(item.MediaSources) == 0 {
+			return
+		}
+
+		mediaSource := item.MediaSources[0]
+		if mediaSource.Path == nil {
+			return
+		}
+
+		mediaSourcePath := *mediaSource.Path
+		if !strings.HasPrefix(mediaSourcePath, "115://") && !strings.HasPrefix(mediaSourcePath, "123://") {
+			return
+		}
+
+		logging.Info("🎯 发现可预加载的视频:", mediaSourcePath)
+
+		// 获取当前请求的真实User-Agent
+		userAgent := ctx.Request.Header.Get("User-Agent")
+		if userAgent == "" {
+			logging.Info("⚠️ 无法获取User-Agent，跳过预加载")
+			return
+		}
+
+		logging.Info("🔍 预加载User-Agent详细信息:")
+		logging.Info("🔍 User-Agent长度:", len(userAgent))
+		logging.Info("🔍 User-Agent内容:", fmt.Sprintf("'%s'", userAgent))
+
+		cacheKey := mediaSourcePath + "|" + userAgent
+
+		// 检查是否已缓存
+		if _, exists := redirectURLCache.Get(cacheKey); exists {
+			logging.Info("✅ 预加载跳过，已缓存:", userAgent)
+			return
+		}
+
+		// 预加载下载链接
+		logging.Info("🔄 预加载下载链接，User-Agent:", userAgent)
+		redirectURL, err := rclone.GetDownloadURL(mediaSourcePath, userAgent)
+		if err != nil {
+			logging.Warning("预加载失败:", err)
+			return
+		}
+
+		// 缓存结果（标记为预加载）
+		expireTime := time.Now().Add(defaultCacheTime)
+		redirectURLCache.Set(cacheKey, redirectURL+"#PRELOADED", expireTime)
+		logging.Info("✅ 预加载完成并缓存:", userAgent)
+
+		logging.Info("🎉 详情页预加载完成，ItemId:", itemId)
+	}()
 }
 
 var _ MediaServerHandler = (*EmbyServerHandler)(nil) // 确保 EmbyServerHandler 实现 MediaServerHandler 接口
 
+// callExternalRclone 临时函数：调用外部 rclone 进行对比测试
+func callExternalRclone(ctx *gin.Context, remotePath, userAgent string) (string, error) {
+	// 解析远程路径
+	colonIndex := strings.Index(remotePath, ":")
+	if colonIndex == -1 {
+		return "", fmt.Errorf("无效的远程路径格式: %s", remotePath)
+	}
+
+	remoteName := remotePath[:colonIndex+1] // 包含冒号，如 "115:"
+
+	// 使用外部命令调用
+	cmdCtx, cancel := context.WithTimeout(ctx.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, "rclone", "backend", "get-download-url", remoteName, remotePath,
+		"-o", fmt.Sprintf("user-agent=%s", userAgent))
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("外部 rclone 调用失败: %w", err)
+	}
+
+	downloadURL := strings.TrimSpace(stdoutBuf.String())
+	if downloadURL == "" {
+		return "", fmt.Errorf("外部 rclone 返回空的下载链接")
+	}
+
+	return downloadURL, nil
+}
+
+// extractDomain 从 URL 中提取域名
+func extractDomain(urlStr string) string {
+	if u, err := url.Parse(urlStr); err == nil {
+		return u.Host
+	}
+	return "unknown"
+}
+
+// countURLParams 计算 URL 参数数量
+func countURLParams(urlStr string) int {
+	if u, err := url.Parse(urlStr); err == nil {
+		return len(u.Query())
+	}
+	return 0
+}
+
 // 全局安全缓存实例
 var (
 	redirectURLCache *cache.SafeCache
-	defaultCacheTime = 15 * time.Minute // 默认缓存时间，可通过配置修改
+	defaultCacheTime = 2 * time.Hour // 默认缓存时间2小时，可通过配置修改
 )
 
 // 初始化缓存

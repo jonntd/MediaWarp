@@ -172,14 +172,14 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 		"path":    fullPath})
 
 	// 获取服务器地址，默认使用第一个
-	if serverAddr == "" && len(config.AlistStrm.List) > 0 {
-		serverAddr = config.AlistStrm.List[0].ADDR
+	if serverAddr == "" && len(config.MediaSync) > 0 {
+		serverAddr = config.MediaSync[0].Name
 	}
 
 	// 查找对应的服务器配置
-	var serverConfig *config.AlistSetting
-	for _, server := range config.AlistStrm.List {
-		if server.ADDR == serverAddr {
+	var serverConfig *config.MediaSyncServerSetting
+	for _, server := range config.MediaSync {
+		if server.Name == serverAddr {
 			serverConfig = &server
 			break
 		}
@@ -187,16 +187,20 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 
 	if serverConfig == nil {
 		logging.Error("未找到服务器配置:", serverAddr)
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"message": "error",
+			"error":   "未找到服务器配置: " + serverAddr,
+		})
 		return
 	}
 
-	// 获取前缀路径，默认使用第一个
-	if prefixPath == "" && len(serverConfig.PrefixList) > 0 {
-		prefixPath = serverConfig.PrefixList[0]
+	// 使用配置中的本地路径
+	if prefixPath == "" {
+		prefixPath = serverConfig.LocalPath
 	}
 
 	taskManager.RunTask(func() {
-		syncAndCreateEmptyFiles(sourceDir, prefixPath)
+		syncAndCreateEmptyFiles(serverConfig.Remote+sourceDir, prefixPath)
 	})
 }
 func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
@@ -457,24 +461,36 @@ func SyncfolderHandler(ctx *gin.Context) {
 		path = ""
 	}
 
-	// 默认使用第一个服务器
-	if serverAddr == "" && len(config.AlistStrm.List) > 0 {
-		serverAddr = config.AlistStrm.List[0].ADDR
+	// 获取服务器地址，默认使用第一个
+	if serverAddr == "" && len(config.MediaSync) > 0 {
+		serverAddr = config.MediaSync[0].Name
 	}
 
 	// 查找对应的服务器配置
-	// 由于serverConfig在后续代码中被使用，这里删除变量声明，直接在for循环中使用
-	var prefixList []string
-	for _, server := range config.AlistStrm.List {
-		if server.ADDR == serverAddr {
-			prefixList = server.PrefixList
+	var serverConfig *config.MediaSyncServerSetting
+	for _, server := range config.MediaSync {
+		if server.Name == serverAddr {
+			serverConfig = &server
 			break
 		}
 	}
 
-	// 默认使用第一个前缀路径
-	if prefixPath == "" && len(prefixList) > 0 {
-		prefixPath = prefixList[0]
+	if serverConfig == nil {
+		ctx.HTML(http.StatusOK, "syncFolder.html", gin.H{
+			"Path":          path,
+			"Folders":       []string{},
+			"Servers":       config.MediaSync,
+			"CurrentServer": serverAddr,
+			"PrefixList":    []string{},
+			"CurrentPrefix": "",
+			"Error":         "未找到服务器配置: " + serverAddr,
+		})
+		return
+	}
+
+	// 使用配置中的本地路径
+	if prefixPath == "" {
+		prefixPath = serverConfig.LocalPath
 	}
 
 	var folders []string
@@ -555,9 +571,9 @@ func SyncfolderHandler(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "syncFolder.html", gin.H{
 		"Path":          path,
 		"Folders":       folders,
-		"Servers":       config.AlistStrm.List,
+		"Servers":       config.MediaSync,
 		"CurrentServer": serverAddr,
-		"PrefixList":    prefixList,
+		"PrefixList":    []string{prefixPath}, // 当前使用的前缀路径
 		"CurrentPrefix": prefixPath,
 	})
 }

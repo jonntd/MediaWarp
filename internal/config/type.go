@@ -53,30 +53,14 @@ type ClientFilterSetting struct {
 	ClientList []string
 }
 
-// HTTPStrm播放设置
-type HTTPStrmSetting struct {
-	Enable     bool
-	TransCode  bool // false->强制关闭转码 true->保持原有转码设置
-	PrefixList []string
-}
+// MediaSync 媒体服务器配置（合并 HTTPStrm 和 RcloneSync）
+type MediaSyncSetting []MediaSyncServerSetting
 
-// AlistStrm具体设置
-type AlistSetting struct {
-	ADDR       string
-	Username   string
-	Password   string
-	Token      *string
-	PrefixList []string
-	Cookie     string
-	Type       string
-}
-
-// AlistStrm播放设置
-type AlistStrmSetting struct {
-	Enable    bool
-	TransCode bool // false->强制关闭转码 true->保持原有转码设置
-	RawURL    bool // 是否使用原始 URL
-	List      []AlistSetting
+// MediaSyncServerSetting 媒体同步服务器设置
+type MediaSyncServerSetting struct {
+	Name      string `yaml:"Name" json:"name"`
+	Remote    string `yaml:"Remote" json:"remote"`
+	LocalPath string `yaml:"LocalPath" json:"local_path"`
 }
 
 // 字幕设置
@@ -89,12 +73,11 @@ type SubtitleSetting struct {
 
 // Config 统一配置结构体（用于验证）
 type Config struct {
-	Server           *ServerConfig      `yaml:"server" json:"server"`
-	MediaServer      *MediaServerConfig `yaml:"media_server" json:"media_server"`
-	AlistStrmConfigs []*AlistStrmConfig `yaml:"alist_strm_configs" json:"alist_strm_configs"`
-	HTTPStrmConfigs  []*HTTPStrmConfig  `yaml:"http_strm_configs" json:"http_strm_configs"`
-	Log              *LogConfig         `yaml:"log" json:"log"`
-	Features         *FeaturesConfig    `yaml:"features" json:"features"`
+	Server          *ServerConfig      `yaml:"server" json:"server"`
+	MediaServer     *MediaServerConfig `yaml:"media_server" json:"media_server"`
+	HTTPStrmConfigs []*HTTPStrmConfig  `yaml:"http_strm_configs" json:"http_strm_configs"`
+	Log             *LogConfig         `yaml:"log" json:"log"`
+	Features        *FeaturesConfig    `yaml:"features" json:"features"`
 }
 
 // ServerConfig 服务器配置
@@ -111,14 +94,7 @@ type MediaServerConfig struct {
 	Type string `yaml:"type" json:"type"`
 }
 
-// AlistStrmConfig Alist配置
-type AlistStrmConfig struct {
-	ADDR     string `yaml:"addr" json:"addr"`
-	Username string `yaml:"username" json:"username"`
-	Password string `yaml:"password" json:"password"`
-	Host     string `yaml:"host" json:"host"`
-	Type     string `yaml:"type" json:"type"`
-}
+// AlistStrmConfig has been removed
 
 // HTTPStrmConfig HTTP Strm配置
 type HTTPStrmConfig struct {
