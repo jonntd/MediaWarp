@@ -1169,7 +1169,7 @@
                 <label for="alist-server">服务器:</label>
                 <select id="alist-server" onchange="changeServer()">
                     {{range .Servers}}
-                    <option value="{{.ADDR}}" {{if eq .ADDR $.CurrentServer}}selected{{end}}>{{.Type}}-{{.ADDR}}</option>
+                    <option value="{{.Name}}" {{if eq .Name $.CurrentServer}}selected{{end}}>{{.Name}}</option>
                     {{end}}
                 </select>
             </div>
