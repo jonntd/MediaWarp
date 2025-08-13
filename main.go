@@ -185,6 +185,18 @@ func main() {
 	// 注册缓存统计API路由
 	handler.RegisterCacheStatsRoutes(ginR)
 	logging.Info("缓存监控API已启用")
+
+	// 注册Web监控系统
+	handler.RegisterWebMonitorRoutes(ginR)
+	logging.Info("Web监控系统已启用")
+
+	// 初始化缓存预热器
+	cache.InitGlobalCacheWarmer(string(config.MediaServer.Type))
+	if cache.GlobalCacheWarmer != nil {
+		cache.GlobalCacheWarmer.StartupWarmup()
+		cache.GlobalCacheWarmer.StartPeriodicWarmup()
+		logging.Info("缓存预热器已启动")
+	}
 	logging.Info("MediaWarp 启动成功")
 	go func() {
 		if err := ginR.Run(config.ListenAddr()); err != nil {

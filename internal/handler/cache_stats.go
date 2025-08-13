@@ -215,11 +215,40 @@ func RegisterCacheStatsRoutes(router *gin.Engine) {
 	{
 		cacheGroup.GET("/stats", handler.GetCacheStats)
 		cacheGroup.GET("/health", handler.GetCacheHealth)
+		cacheGroup.GET("/warmup/stats", handler.GetWarmupStats)
 		cacheGroup.POST("/clear", handler.ClearCache)
 		cacheGroup.POST("/warmup", handler.WarmUpCache)
 	}
 
 	logging.Info("缓存统计API路由已注册")
+}
+
+// GetWarmupStats 获取缓存预热统计
+func (h *CacheStatsHandler) GetWarmupStats(ctx *gin.Context) {
+	logging.Debug("======= GetWarmupStats =======")
+
+	if cache.GlobalCacheWarmer == nil {
+		ctx.JSON(http.StatusOK, gin.H{
+			"enabled": false,
+			"message": "缓存预热器未启用",
+		})
+		return
+	}
+
+	stats := cache.GlobalCacheWarmer.GetWarmupStats()
+
+	response := gin.H{
+		"enabled":                 true,
+		"total_warmup_requests":   stats.TotalWarmupRequests,
+		"successful_warmups":      stats.SuccessfulWarmups,
+		"failed_warmups":          stats.FailedWarmups,
+		"last_warmup_time":        stats.LastWarmupTime,
+		"average_warmup_duration": stats.AverageWarmupDuration.Milliseconds(),
+		"success_rate":            float64(stats.SuccessfulWarmups) / float64(stats.TotalWarmupRequests) * 100,
+		"timestamp":               time.Now(),
+	}
+
+	ctx.JSON(http.StatusOK, response)
 }
 
 // CacheMetrics 缓存性能指标

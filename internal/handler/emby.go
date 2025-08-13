@@ -178,16 +178,28 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 			itemResponse = cachedItem.EmbyItem
 		} else {
 			logging.Info("媒体项信息缓存未命中，从上游获取：", mediaSourceID)
-			itemResponse, err = embyServerHandler.server.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
+			// 使用请求去重器避免重复API调用
+			result, err := cache.GlobalRequestDeduplicator.Do(
+				"item_info_"+mediaSourceID,
+				func() (interface{}, error) {
+					return embyServerHandler.server.ItemsServiceQueryItem(mediaSourceID, 1, "Path,MediaSources")
+				},
+			)
 			if err != nil {
 				logging.Warning("请求 ItemsServiceQueryItem 失败：", err)
 				continue
 			}
+			itemResponse = result.(*emby.EmbyResponse)
 			// 缓存结果（30分钟TTL）
 			embyServerHandler.cache.SetItemInfo(mediaSourceID, itemResponse, nil, 30*time.Minute)
 		}
 
 		item = itemResponse.Items[0]
+
+		// 触发缓存预热
+		if cache.GlobalCacheWarmer != nil {
+			cache.GlobalCacheWarmer.OnAccessWarmup(mediaSourceID)
+		}
 
 		// 2. 尝试从缓存获取Strm文件类型
 		var strmFileType constants.StrmFileType
@@ -321,6 +333,12 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 	}
 
 	item = itemResponse.Items[0]
+
+	// 触发缓存预热
+	if cache.GlobalCacheWarmer != nil {
+		cache.GlobalCacheWarmer.OnAccessWarmup(cleanMediaSourceID)
+	}
+
 	if !strings.HasSuffix(strings.ToLower(*item.Path), ".strm") { // 不是 Strm 文件
 		logging.Debug("播放本地视频：" + *item.Path + "，不进行处理")
 		embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
