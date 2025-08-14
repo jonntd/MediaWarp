@@ -5,17 +5,14 @@ import (
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
 	"MediaWarp/internal/process"
+	"MediaWarp/internal/rclone"
 	"MediaWarp/internal/security"
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -215,142 +212,38 @@ func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
 	scanMediaLibrary()
 }
 
-func runRcloneSync(sourceDir, remoteDest string, colonIndex int) error {
-	// 使用filepath.Join和config.RootDir获取rclone的绝对路径
-	fmt.Println("sourceDirt:", sourceDir)
-	fmt.Println("remoteDest:", remoteDest)
-	// cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "4", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--dirs-only", "--exclude", "*.*")
-	// cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit",
-	// 	"5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "2",
-	// 	"--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8",
-	// 	"--exclude", "*",
-	// 	"--include", "*.srt", "--include", "*.SRT",
-	// 	"--include", "*.ass", "--include", "*.ASS",
-	// 	"--include", "*/")
-	// "--dirs-only", "--exclude", "*.*")
-	cmd := exec.Command("rclone", "sync", sourceDir, filepath.Join(remoteDest, sourceDir[colonIndex+1:]), "--fast-list", "--checkers", "4", "--tpslimit", "5", "--log-level", "INFO", "--delete-after", "--size-only", "--ignore-times", "--ignore-existing", "--ignore-checksum", "--max-size", "10M", "--transfers", "4", "--multi-thread-streams", "0", "--local-encoding", "Slash,InvalidUtf8", "--115-encoding", "Slash,InvalidUtf8", "--dirs-only", "--exclude", "*.*")
-
-	fmt.Printf("Running command: %s\n", cmd.String())
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("error creating StdoutPipe: %v", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("error creating StderrPipe: %v", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("error starting command: %v", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	// 读取 stdout
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			fmt.Println("stdout:", scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading stdout:", err)
-		}
-	}()
-
-	// 读取 stderr 并删除目录
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Println("stderr:", line)
-			re := regexp.MustCompile(`INFO\s+: (.+?): Removing directory`)
-			matches := re.FindStringSubmatch(line)
-			if len(matches) > 1 {
-				folderPath := filepath.Join(remoteDest, sourceDir[colonIndex+1:], matches[1])
-				if err := os.RemoveAll(folderPath); err != nil {
-					fmt.Printf("Failed to delete folder: %v\n", err)
-				} else {
-					fmt.Printf("Folder successfully deleted: %s\n", folderPath)
-				}
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading stderr:", err)
-		}
-	}()
-
-	wg.Wait()
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("error waiting for command: %v", err)
-	}
-
-	return nil
-}
-
 func runBackendMediaSync(sourceDir, remoteDest string, colonIndex int) error {
 	// 构建目标路径，参考 runRcloneSync 的路径处理方式
 	targetPath := filepath.Join(remoteDest, sourceDir[colonIndex+1:])
 
-	fmt.Println("sourceDir:", sourceDir)
-	fmt.Println("remoteDest:", remoteDest)
-	fmt.Println("targetPath:", targetPath)
+	logging.Info("使用内部rclone backend调用")
+	logging.Info("sourceDir:", sourceDir)
+	logging.Info("remoteDest:", remoteDest)
+	logging.Info("targetPath:", targetPath)
 
-	// rclone backend media-sync <remote:path> <targetPath> -o min-size=100M -o strm-format -o sync-delete -vv
-	cmd := exec.Command("rclone", "backend", "media-sync", sourceDir, targetPath,
-		"-o", "min-size=100M", "-o", "strm-format", "-o", "sync-delete", "-vv")
+	// 从sourceDir中提取远程名称（如 "115:"）
+	remoteName := sourceDir[:colonIndex+1]
+	remotePath := sourceDir[colonIndex+1:]
 
-	fmt.Printf("Running command: %s\n", cmd.String())
+	logging.Info("remoteName:", remoteName)
+	logging.Info("remotePath:", remotePath)
 
-	stdout, err := cmd.StdoutPipe()
+	// 准备backend选项
+	options := map[string]string{
+		"min-size":    "100M",
+		"strm-format": "",
+		"sync-delete": "",
+		"vv":          "", // 详细日志输出
+	}
+
+	// 使用内部rclone库调用backend命令
+	err := rclone.Backend("media-sync", remoteName, remotePath, targetPath, options)
 	if err != nil {
-		return fmt.Errorf("error creating StdoutPipe: %v", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("error creating StderrPipe: %v", err)
+		logging.Error("内部rclone backend调用失败:", err)
+		return fmt.Errorf("内部rclone backend调用失败: %w", err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("error starting command: %v", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	// 读取 stdout
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			fmt.Println("stdout:", scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading stdout:", err)
-		}
-	}()
-
-	// 读取 stderr
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			fmt.Println("stderr:", scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading stderr:", err)
-		}
-	}()
-
-	wg.Wait()
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("error waiting for command: %v", err)
-	}
+	logging.Info("内部rclone backend调用成功")
 	return nil
 }
 
@@ -576,13 +469,6 @@ func SyncfolderHandler(ctx *gin.Context) {
 		"PrefixList":    []string{prefixPath}, // 当前使用的前缀路径
 		"CurrentPrefix": prefixPath,
 	})
-}
-
-// Handle sync folder requests
-func handleSyncFolder(ctx *gin.Context) {
-	path := ctx.Param("path")
-	fmt.Printf("Sync requested for folder: %s\n", path)
-	ctx.JSON(http.StatusOK, gin.H{"message": "Sync request received", "path": path})
 }
 
 // 缓存管理API处理函数

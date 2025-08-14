@@ -9,14 +9,12 @@ import (
 	"MediaWarp/internal/service/emby"
 	"MediaWarp/utils"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"regexp"
 	"strings"
@@ -202,14 +200,13 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 
 		// 2. 尝试从缓存获取Strm文件类型
 		var strmFileType constants.StrmFileType
-		var strmOption interface{}
 
 		if cachedStrm, found := embyServerHandler.cache.GetStrmType(*item.Path); found {
 			logging.Info("Strm类型缓存命中：", *item.Path)
 			strmFileType = cachedStrm.Type
-			strmOption = cachedStrm.Option
 		} else {
 			logging.Info("Strm类型缓存未命中，重新识别：", *item.Path)
+			var strmOption interface{}
 			strmFileType, strmOption, _ = recgonizeStrmFileType(*item.Path)
 			// 缓存结果（1小时TTL）
 			embyServerHandler.cache.SetStrmType(*item.Path, strmFileType, strmOption, 1*time.Hour)
@@ -237,24 +234,6 @@ func (embyServerHandler *EmbyServerHandler) ModifyPlaybackInfo(rw *http.Response
 				}
 			}
 
-		case constants.AlistStrm: // AlistStrm support has been removed
-			// Alist support has been removed, treat as unknown
-			logging.Warning("AlistStrm support has been removed for:", *mediasource.Name)
-
-			// if playbackInfoResponse.MediaSources[index].Size == nil {
-			// 	alistServer, err := service.GetAlistServer(opt.(string))
-			// 	if err != nil {
-			// 		logging.Warning("获取 AlistServer 失败：", err)
-			// 		continue
-			// 	}
-			// 	fsGetData, err := alistServer.FsGet(*mediasource.Path)
-			// 	if err != nil {
-			// 		logging.Warning("请求 FsGet 失败：", err)
-			// 		continue
-			// 	}
-			// 	playbackInfoResponse.MediaSources[index].Size = &fsGetData.Size
-			// 	logging.Info(*mediasource.Name, "设置文件大小为:", fsGetData.Size)
-			// }
 		}
 	}
 
@@ -421,43 +400,7 @@ func (embyServerHandler *EmbyServerHandler) VideosHandler(ctx *gin.Context) {
 					embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 				}
 				return
-			case constants.AlistStrm: // 无需判断 *mediasource.Container 是否以Strm结尾，当 AlistStrm 存储的位置有对应的文件时，*mediasource.Container 会被设置为文件后缀
-				if mediasource.Path == nil {
-					logging.Warning("AlistStrm 媒体源路径为空")
-					embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
-					return
-				}
-				desiredPath := strings.Replace(*mediasource.Path, opt.(string), "", 1)
-				desiredPath = ensureLeadingSlash(desiredPath)
-				logging.Debug("请求 desiredPath:", desiredPath)
-				logging.Debug("请求 opt.(string):", opt.(string))
 
-				// desiredPath 格式如 /115://cw70g4pz5n532d44w，去掉开头的斜杠得到 115://cw70g4pz5n532d44w
-				downloadurl := strings.TrimPrefix(desiredPath, "/")
-				userAgent := ctx.Request.Header.Get("User-Agent")
-				logging.Debug("downloadurl:", downloadurl)
-				cacheKey := downloadurl + "|" + userAgent
-
-				// 尝试从缓存获取URL
-				if cachedItem, exists := redirectURLCache.Get(cacheKey); exists {
-					logging.Info("从缓存获取重定向URL：", cachedItem.URL)
-					redirectURL = cachedItem.URL
-				} else {
-					// 缓存不存在或已过期，使用内部 rclone 调用获取URL
-					logging.Info("使用内部 rclone 调用获取下载链接:", downloadurl)
-					redirectURL, err := rclone.GetDownloadURL(downloadurl, userAgent)
-					if err != nil {
-						logging.Warning("内部 rclone 调用失败：", err)
-						return
-					}
-					// 将新获取的URL存入缓存
-					expireTime := time.Now().Add(defaultCacheTime)
-					redirectURLCache.Set(cacheKey, redirectURL, expireTime)
-					logging.Info("缓存重定向URL，过期时间：", expireTime)
-				}
-				logging.Info("AlistStrm 重定向至：", fmt.Sprintf("==%s==", redirectURL))
-				ctx.Redirect(http.StatusFound, redirectURL)
-				return
 			case constants.UnknownStrm:
 				embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 				return
@@ -662,40 +605,6 @@ func (embyServerHandler *EmbyServerHandler) ItemDetailHandler(ctx *gin.Context) 
 }
 
 var _ MediaServerHandler = (*EmbyServerHandler)(nil) // 确保 EmbyServerHandler 实现 MediaServerHandler 接口
-
-// callExternalRclone 临时函数：调用外部 rclone 进行对比测试
-func callExternalRclone(ctx *gin.Context, remotePath, userAgent string) (string, error) {
-	// 解析远程路径
-	colonIndex := strings.Index(remotePath, ":")
-	if colonIndex == -1 {
-		return "", fmt.Errorf("无效的远程路径格式: %s", remotePath)
-	}
-
-	remoteName := remotePath[:colonIndex+1] // 包含冒号，如 "115:"
-
-	// 使用外部命令调用
-	cmdCtx, cancel := context.WithTimeout(ctx.Request.Context(), 30*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(cmdCtx, "rclone", "backend", "get-download-url", remoteName, remotePath,
-		"-o", fmt.Sprintf("user-agent=%s", userAgent))
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-
-	err := cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("外部 rclone 调用失败: %w", err)
-	}
-
-	downloadURL := strings.TrimSpace(stdoutBuf.String())
-	if downloadURL == "" {
-		return "", fmt.Errorf("外部 rclone 返回空的下载链接")
-	}
-
-	return downloadURL, nil
-}
 
 // extractDomain 从 URL 中提取域名
 func extractDomain(urlStr string) string {

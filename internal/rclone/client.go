@@ -8,7 +8,10 @@ import (
 
 	"MediaWarp/internal/logging"
 
-	_ "github.com/rclone/rclone/backend/all"
+	// 只导入需要的后端，而不是全部后端
+	_ "github.com/rclone/rclone/backend/115"
+	_ "github.com/rclone/rclone/backend/123"
+	_ "github.com/rclone/rclone/backend/local"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config/configfile"
 )
@@ -88,6 +91,9 @@ func (c *RcloneClient) GetDownloadURL(ctx context.Context, remotePath, userAgent
 		logging.Info("使用默认 User-Agent")
 	}
 
+	// 添加详细日志输出
+	opt["vv"] = "" // 详细日志输出
+
 	logging.Info("调用 getDownloadURLCommand，参数:", args, "选项:", opt)
 
 	// 调用 getDownloadURLCommand
@@ -114,7 +120,89 @@ func (c *RcloneClient) GetDownloadURLWithTimeout(remotePath, userAgent string, t
 	return c.GetDownloadURL(ctx, remotePath, userAgent)
 }
 
+// Sync 执行rclone sync操作
+func (c *RcloneClient) Sync(ctx context.Context, srcPath, dstPath string, options map[string]string) error {
+	if !c.initialized {
+		if err := c.Initialize(); err != nil {
+			return fmt.Errorf("初始化 rclone 客户端失败: %w", err)
+		}
+	}
+
+	logging.Info("Rclone 内部同步开始，源:", srcPath, "目标:", dstPath)
+
+	// 解析源和目标路径
+	srcFs, err := fs.NewFs(ctx, srcPath)
+	if err != nil {
+		return fmt.Errorf("解析源路径失败: %w", err)
+	}
+
+	dstFs, err := fs.NewFs(ctx, dstPath)
+	if err != nil {
+		return fmt.Errorf("解析目标路径失败: %w", err)
+	}
+
+	// 这里需要实现具体的sync逻辑
+	// 由于rclone的sync操作比较复杂，我们先返回一个占位符
+	logging.Info("执行内部sync操作:", srcFs.Name(), "->", dstFs.Name())
+
+	// TODO: 实现具体的sync逻辑
+	return fmt.Errorf("内部sync功能正在开发中，请使用外部rclone命令")
+}
+
+// Backend 执行rclone backend操作
+func (c *RcloneClient) Backend(ctx context.Context, command, remoteName, remotePath, targetPath string, options map[string]string) error {
+	if !c.initialized {
+		if err := c.Initialize(); err != nil {
+			return fmt.Errorf("初始化 rclone 客户端失败: %w", err)
+		}
+	}
+
+	logging.Info("Rclone 内部backend调用:", command, remoteName, remotePath, targetPath)
+
+	// 获取远程文件系统
+	fsInfo, err := fs.NewFs(ctx, remoteName)
+	if err != nil {
+		return fmt.Errorf("创建远程文件系统失败: %w", err)
+	}
+
+	// 检查是否支持backend命令
+	if fsInfo.Features().Command == nil {
+		return fmt.Errorf("远程文件系统不支持backend命令")
+	}
+
+	// 准备参数
+	args := []string{remotePath, targetPath}
+	opt := make(map[string]string)
+	for k, v := range options {
+		opt[k] = v
+	}
+
+	logging.Info("调用backend命令:", command, "参数:", args, "选项:", opt)
+
+	// 调用backend命令
+	result, err := fsInfo.Features().Command(ctx, command, args, opt)
+	if err != nil {
+		logging.Error("Backend命令执行失败:", err)
+		return fmt.Errorf("backend命令执行失败: %w", err)
+	}
+
+	logging.Info("Backend命令执行成功:", result)
+	return nil
+}
+
 // 便利函数：直接调用全局客户端
 func GetDownloadURL(remotePath, userAgent string) (string, error) {
 	return GlobalClient.GetDownloadURLWithTimeout(remotePath, userAgent, 30*time.Second)
+}
+
+// Sync 便利函数
+func Sync(srcPath, dstPath string, options map[string]string) error {
+	ctx := context.Background()
+	return GlobalClient.Sync(ctx, srcPath, dstPath, options)
+}
+
+// Backend 便利函数
+func Backend(command, remoteName, remotePath, targetPath string, options map[string]string) error {
+	ctx := context.Background()
+	return GlobalClient.Backend(ctx, command, remoteName, remotePath, targetPath, options)
 }

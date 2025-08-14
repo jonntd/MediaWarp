@@ -13,6 +13,12 @@ builds:
       - arm64
     goarm:
       - '7'
+    # 体积优化：去除调试信息和符号表
+    ldflags:
+      - -s -w
+    # 禁用CGO以减少体积和提高兼容性
+    env:
+      - CGO_ENABLED=0
 
 changelog:
   sort: asc

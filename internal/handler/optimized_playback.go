@@ -31,12 +31,22 @@ func NewOptimizedPlaybackHandler(serverType string) *OptimizedPlaybackHandler {
 	switch serverType {
 	case "emby":
 		handler.embyServer = emby.New(config.MediaServer.ADDR, config.MediaServer.AUTH)
-	case "jellyfin":
-		// Jellyfin support has been removed
-		logging.Warning("Jellyfin support is not available")
+	default:
+		logging.Warning("Unsupported server type:", serverType, "- only 'emby' is supported")
+		return nil
 	}
 
 	return handler
+}
+
+// isValidServerType 检查服务器类型是否有效
+func (h *OptimizedPlaybackHandler) isValidServerType() bool {
+	return h.serverType == "emby"
+}
+
+// newUnsupportedServerError 创建不支持的服务器类型错误
+func (h *OptimizedPlaybackHandler) newUnsupportedServerError() error {
+	return fmt.Errorf("unsupported server type: %s (only 'emby' is supported)", h.serverType)
 }
 
 // HandlePlaybackInfo 优化的播放信息处理（消除重复调用）
@@ -145,11 +155,10 @@ func (h *OptimizedPlaybackHandler) getItemInfoOnce(mediaSourceID string) (interf
 	// 检查缓存
 	if cachedItem, found := h.cache.GetItemInfo(mediaSourceID); found {
 		logging.Info("媒体项信息缓存命中：", mediaSourceID)
-		if h.serverType == "emby" {
+		if h.isValidServerType() {
 			return cachedItem.EmbyItem, nil
 		}
-		// Jellyfin support has been removed
-		return nil, fmt.Errorf("jellyfin support not available")
+		return nil, h.newUnsupportedServerError()
 	}
 
 	// 缓存未命中，从上游获取
@@ -165,11 +174,8 @@ func (h *OptimizedPlaybackHandler) getItemInfoOnce(mediaSourceID string) (interf
 			// 缓存Emby响应（30分钟TTL）
 			h.cache.SetItemInfo(mediaSourceID, itemResponse.(*emby.EmbyResponse), 30*time.Minute)
 		}
-	case "jellyfin":
-		// Jellyfin support has been removed
-		return nil, fmt.Errorf("jellyfin support not available")
 	default:
-		return nil, fmt.Errorf("unsupported server type: %s", h.serverType)
+		return nil, h.newUnsupportedServerError()
 	}
 
 	return itemResponse, err
@@ -198,11 +204,10 @@ func (h *OptimizedPlaybackHandler) getStrmTypeOnce(filePath string) (constants.S
 func (h *OptimizedPlaybackHandler) getItemInfoFromCacheOrFetch(mediaSourceID string) (interface{}, error) {
 	// 优先从缓存获取
 	if cachedItem, found := h.cache.GetItemInfo(mediaSourceID); found {
-		if h.serverType == "emby" {
+		if h.isValidServerType() {
 			return cachedItem.EmbyItem, nil
 		}
-		// Jellyfin support has been removed
-		return nil, fmt.Errorf("jellyfin support not available")
+		return nil, h.newUnsupportedServerError()
 	}
 
 	// 缓存未命中，重新获取
@@ -228,43 +233,11 @@ func (h *OptimizedPlaybackHandler) handleStrmRedirect(ctx *gin.Context, strmType
 		logging.Info("HTTPStrm重定向至：", itemPath)
 		ctx.Redirect(http.StatusFound, itemPath)
 
-	case constants.AlistStrm:
-		// AlistStrm需要获取下载链接
-		redirectURL, err := h.getAlistDownloadURL(itemPath, strmOption.(string))
-		if err != nil {
-			logging.Warning("获取Alist下载链接失败：", err)
-			h.forwardToUpstream(ctx)
-			return
-		}
-
-		logging.Info("AlistStrm重定向至：", redirectURL)
-		ctx.Redirect(http.StatusFound, redirectURL)
-
 	default:
-		// 未知类型，转发到上游
-		logging.Debug("未知Strm类型，转发到上游服务器")
+		// 未知类型或不支持的类型，转发到上游
+		logging.Debug("未知或不支持的Strm类型，转发到上游服务器")
 		h.forwardToUpstream(ctx)
 	}
-}
-
-// getAlistDownloadURL 获取Alist下载链接（带缓存）
-func (h *OptimizedPlaybackHandler) getAlistDownloadURL(filePath, alistServerAddr string) (string, error) {
-	// 检查缓存
-	if cachedLink, found := h.cache.GetAlistLink(filePath); found {
-		logging.Info("Alist链接缓存命中：", filePath)
-		// Alist support has been removed
-		return "", fmt.Errorf("alist support not available")
-
-		downloadURL := fmt.Sprintf("%s/d%s", alistServerAddr, filePath)
-		if cachedLink.Sign != "" {
-			downloadURL += "?sign=" + cachedLink.Sign
-		}
-		return downloadURL, nil
-	}
-
-	// Alist service has been removed
-	logging.Warning("Alist service is not available")
-	return "", fmt.Errorf("alist service not available")
 }
 
 // 辅助方法
@@ -288,10 +261,8 @@ func (h *OptimizedPlaybackHandler) getItemPath(itemInfo interface{}) string {
 		if embyItem, ok := itemInfo.(*emby.EmbyResponse); ok && len(embyItem.Items) > 0 {
 			return *embyItem.Items[0].Path
 		}
-	case "jellyfin":
-		// Jellyfin support has been removed
-		logging.Warning("Jellyfin support is not available")
-		return ""
+	default:
+		logging.Warning("Unsupported server type:", h.serverType, "- only 'emby' is supported")
 	}
 	return ""
 }

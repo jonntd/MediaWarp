@@ -9,7 +9,7 @@ RUN GO111MODULE=on go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -a --trimpath --installsuffix cgo --ldflags="-s" -o media-warp
+RUN CGO_ENABLED=0 go build -a --trimpath --installsuffix cgo --ldflags="-s -w" -o media-warp
 
 FROM ghcr.io/by275/base:ubuntu24.04 AS base
 FROM base AS rclone
