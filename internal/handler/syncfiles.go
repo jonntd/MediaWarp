@@ -5,13 +5,14 @@ import (
 	"MediaWarp/internal/config"
 	"MediaWarp/internal/logging"
 	"MediaWarp/internal/process"
-	"MediaWarp/internal/rclone"
 	"MediaWarp/internal/security"
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -197,7 +198,7 @@ func MediaFileSyncHandler(ctx *gin.Context) {
 	}
 
 	taskManager.RunTask(func() {
-		syncAndCreateEmptyFiles(serverConfig.Remote+sourceDir, prefixPath)
+		syncAndCreateEmptyFiles(sourceDir, prefixPath)
 	})
 }
 func syncAndCreateEmptyFiles(sourceDir, remoteDest string) {
@@ -216,34 +217,61 @@ func runBackendMediaSync(sourceDir, remoteDest string, colonIndex int) error {
 	// 构建目标路径，参考 runRcloneSync 的路径处理方式
 	targetPath := filepath.Join(remoteDest, sourceDir[colonIndex+1:])
 
-	logging.Info("使用内部rclone backend调用")
-	logging.Info("sourceDir:", sourceDir)
-	logging.Info("remoteDest:", remoteDest)
-	logging.Info("targetPath:", targetPath)
+	fmt.Println("sourceDir:", sourceDir)
+	fmt.Println("remoteDest:", remoteDest)
+	fmt.Println("targetPath:", targetPath)
 
-	// 从sourceDir中提取远程名称（如 "115:"）
-	remoteName := sourceDir[:colonIndex+1]
-	remotePath := sourceDir[colonIndex+1:]
+	// rclone backend media-sync <remote:path> <targetPath> -o min-size=100M -o strm-format -o sync-delete -vv
+	cmd := exec.Command("rclone", "backend", "media-sync", sourceDir, targetPath,
+		"-o", "min-size=100M", "-o", "strm-format", "-o", "sync-delete", "-vv")
 
-	logging.Info("remoteName:", remoteName)
-	logging.Info("remotePath:", remotePath)
+	fmt.Printf("Running command: %s\n", cmd.String())
 
-	// 准备backend选项
-	options := map[string]string{
-		"min-size":    "100M",
-		"strm-format": "",
-		"sync-delete": "",
-		"vv":          "", // 详细日志输出
-	}
-
-	// 使用内部rclone库调用backend命令
-	err := rclone.Backend("media-sync", remoteName, remotePath, targetPath, options)
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		logging.Error("内部rclone backend调用失败:", err)
-		return fmt.Errorf("内部rclone backend调用失败: %w", err)
+		return fmt.Errorf("error creating StdoutPipe: %v", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("error creating StderrPipe: %v", err)
 	}
 
-	logging.Info("内部rclone backend调用成功")
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("error starting command: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// 读取 stdout
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			fmt.Println("stdout:", scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Println("Error reading stdout:", err)
+		}
+	}()
+
+	// 读取 stderr
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			fmt.Println("stderr:", scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Println("Error reading stderr:", err)
+		}
+	}()
+
+	wg.Wait()
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("error waiting for command: %v", err)
+	}
 	return nil
 }
 
@@ -471,6 +499,13 @@ func SyncfolderHandler(ctx *gin.Context) {
 	})
 }
 
+// Handle sync folder requests
+func handleSyncFolder(ctx *gin.Context) {
+	path := ctx.Param("path")
+	fmt.Printf("Sync requested for folder: %s\n", path)
+	ctx.JSON(http.StatusOK, gin.H{"message": "Sync request received", "path": path})
+}
+
 // 缓存管理API处理函数
 func cacheStatsHandler(ctx *gin.Context) {
 	stats := cache.GlobalFolderCache.GetStats()
@@ -525,4 +560,5 @@ func SyncFilesRouter(router *gin.Engine) {
 	router.GET("/cache/stats", apiKeyAuth(), cacheStatsHandler)
 	router.POST("/cache/clear", apiKeyAuth(), clearCacheHandler)
 	router.GET("/cache/export", apiKeyAuth(), exportCacheHandler)
+
 }

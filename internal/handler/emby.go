@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -516,7 +518,7 @@ func (embyServerHandler *EmbyServerHandler) ItemDetailHandler(ctx *gin.Context) 
 	// 先正常代理请求
 	embyServerHandler.ReverseProxy(ctx.Writer, ctx.Request)
 
-	// 异步预加载下载链接
+	// 异步预加载下载链接（使用预加载管理器）
 	go func() {
 		// 从URL提取itemId
 		path := ctx.Request.URL.Path
@@ -587,9 +589,38 @@ func (embyServerHandler *EmbyServerHandler) ItemDetailHandler(ctx *gin.Context) 
 			return
 		}
 
+		// 使用预加载管理器检查是否可以预加载
+		if !preloadManager.CanPreload(cacheKey) {
+			logging.Info("⏸️ 预加载跳过，管理器拒绝:", cacheKey)
+			return
+		}
+
+		// 尝试开始预加载（获取并发控制信号量）
+		if !preloadManager.StartPreload(cacheKey) {
+			logging.Info("⏸️ 预加载跳过，并发限制:", cacheKey)
+			return
+		}
+
+		// 确保在函数结束时释放资源
+		defer func() {
+			if r := recover(); r != nil {
+				logging.Error("预加载panic:", r)
+				preloadManager.FinishPreload(cacheKey, fmt.Errorf("panic: %v", r))
+			}
+		}()
+
+		// 添加随机延迟，避免瞬间大量请求
+		delay := time.Duration(randSource.Intn(500)+100) * time.Millisecond
+		time.Sleep(delay)
+		logging.Info("🕐 预加载延迟:", delay, "cacheKey:", cacheKey)
+
 		// 预加载下载链接
 		logging.Info("🔄 预加载下载链接，User-Agent:", userAgent)
 		redirectURL, err := rclone.GetDownloadURL(mediaSourcePath, userAgent)
+
+		// 完成预加载（释放信号量和更新错误状态）
+		preloadManager.FinishPreload(cacheKey, err)
+
 		if err != nil {
 			logging.Warning("预加载失败:", err)
 			return
@@ -622,13 +653,90 @@ func countURLParams(urlStr string) int {
 	return 0
 }
 
-// 全局安全缓存实例
+// PreloadManager 预加载管理器
+type PreloadManager struct {
+	semaphore    chan struct{}   // 并发控制信号量
+	processing   map[string]bool // 正在处理的请求映射
+	processingMu sync.RWMutex    // 保护processing映射的锁
+	lastError    time.Time       // 最后一次错误时间
+	errorCount   int             // 连续错误计数
+	errorMu      sync.RWMutex    // 保护错误状态的锁
+}
+
+// NewPreloadManager 创建新的预加载管理器
+func NewPreloadManager(maxConcurrent int) *PreloadManager {
+	return &PreloadManager{
+		semaphore:  make(chan struct{}, maxConcurrent),
+		processing: make(map[string]bool),
+	}
+}
+
+// CanPreload 检查是否可以进行预加载
+func (pm *PreloadManager) CanPreload(cacheKey string) bool {
+	pm.errorMu.RLock()
+	defer pm.errorMu.RUnlock()
+
+	// 如果最近有错误且错误次数过多，暂停预加载
+	if pm.errorCount >= 3 && time.Since(pm.lastError) < 5*time.Minute {
+		logging.Warning("预加载暂停中，错误次数过多:", pm.errorCount)
+		return false
+	}
+
+	pm.processingMu.RLock()
+	defer pm.processingMu.RUnlock()
+
+	// 检查是否已在处理中
+	return !pm.processing[cacheKey]
+}
+
+// StartPreload 开始预加载（获取信号量和标记处理中）
+func (pm *PreloadManager) StartPreload(cacheKey string) bool {
+	// 非阻塞获取信号量
+	select {
+	case pm.semaphore <- struct{}{}:
+		pm.processingMu.Lock()
+		pm.processing[cacheKey] = true
+		pm.processingMu.Unlock()
+		return true
+	default:
+		logging.Info("预加载队列已满，跳过:", cacheKey)
+		return false
+	}
+}
+
+// FinishPreload 完成预加载（释放信号量和清除处理标记）
+func (pm *PreloadManager) FinishPreload(cacheKey string, err error) {
+	// 释放信号量
+	<-pm.semaphore
+
+	// 清除处理标记
+	pm.processingMu.Lock()
+	delete(pm.processing, cacheKey)
+	pm.processingMu.Unlock()
+
+	// 更新错误状态
+	pm.errorMu.Lock()
+	if err != nil {
+		pm.lastError = time.Now()
+		pm.errorCount++
+		logging.Warning("预加载失败，错误计数:", pm.errorCount, "错误:", err)
+	} else {
+		pm.errorCount = 0 // 成功时重置错误计数
+	}
+	pm.errorMu.Unlock()
+}
+
+// 全局安全缓存实例和预加载管理器
 var (
 	redirectURLCache *cache.SafeCache
 	defaultCacheTime = 2 * time.Hour // 默认缓存时间2小时，可通过配置修改
+	preloadManager   *PreloadManager
+	randSource       *rand.Rand // 本地随机数生成器
 )
 
-// 初始化缓存
+// 初始化缓存和预加载管理器
 func init() {
-	redirectURLCache = cache.NewSafeCache(5 * time.Minute) // 每5分钟清理一次过期项
+	redirectURLCache = cache.NewSafeCache(5 * time.Minute)       // 每5分钟清理一次过期项
+	preloadManager = NewPreloadManager(2)                        // 最多2个并发预加载
+	randSource = rand.New(rand.NewSource(time.Now().UnixNano())) // 初始化本地随机数生成器
 }
