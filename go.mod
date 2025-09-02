@@ -80,4 +80,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
+// 使用自定义rclone fork，支持115和123网盘的下载链接获取功能
+// 版本: v1.71.0-120 (2025-08-12)
+// 仓库: https://github.com/jonntd/rclone/tree/master-115
 replace github.com/rclone/rclone => github.com/jonntd/rclone v1.71.0-120

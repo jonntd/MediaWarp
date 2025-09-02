@@ -9,6 +9,7 @@ import (
 	"MediaWarp/internal/service/emby"
 	"MediaWarp/utils"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -520,6 +521,10 @@ func (embyServerHandler *EmbyServerHandler) ItemDetailHandler(ctx *gin.Context) 
 
 	// 异步预加载下载链接（使用预加载管理器）
 	go func() {
+		// 添加超时控制，防止 goroutine 泄漏
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
 		// 从URL提取itemId
 		path := ctx.Request.URL.Path
 		parts := strings.Split(path, "/")
@@ -614,9 +619,9 @@ func (embyServerHandler *EmbyServerHandler) ItemDetailHandler(ctx *gin.Context) 
 		time.Sleep(delay)
 		logging.Info("🕐 预加载延迟:", delay, "cacheKey:", cacheKey)
 
-		// 预加载下载链接
+		// 预加载下载链接（使用超时上下文）
 		logging.Info("🔄 预加载下载链接，User-Agent:", userAgent)
-		redirectURL, err := rclone.GetDownloadURL(mediaSourcePath, userAgent)
+		redirectURL, err := rclone.GlobalClient.GetDownloadURL(timeoutCtx, mediaSourcePath, userAgent)
 
 		// 完成预加载（释放信号量和更新错误状态）
 		preloadManager.FinishPreload(cacheKey, err)
@@ -673,6 +678,15 @@ func NewPreloadManager(maxConcurrent int) *PreloadManager {
 
 // CanPreload 检查是否可以进行预加载
 func (pm *PreloadManager) CanPreload(cacheKey string) bool {
+	// 统一锁顺序：先检查 processing，后检查 error，避免死锁
+	pm.processingMu.RLock()
+	processing := pm.processing[cacheKey]
+	pm.processingMu.RUnlock()
+
+	if processing {
+		return false
+	}
+
 	pm.errorMu.RLock()
 	defer pm.errorMu.RUnlock()
 
@@ -682,11 +696,7 @@ func (pm *PreloadManager) CanPreload(cacheKey string) bool {
 		return false
 	}
 
-	pm.processingMu.RLock()
-	defer pm.processingMu.RUnlock()
-
-	// 检查是否已在处理中
-	return !pm.processing[cacheKey]
+	return true
 }
 
 // StartPreload 开始预加载（获取信号量和标记处理中）

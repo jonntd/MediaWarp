@@ -26,29 +26,30 @@ func NewSafeCache(cleanupInterval time.Duration) *SafeCache {
 		cleanup: time.NewTicker(cleanupInterval),
 		done:    make(chan bool),
 	}
-	
+
 	// 启动清理协程
 	go cache.startCleanup()
-	
+
 	return cache
 }
 
 // Get 获取缓存项
 func (c *SafeCache) Get(key string) (CacheItem, bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	item, exists := c.data[key]
 	if !exists {
 		return CacheItem{}, false
 	}
-	
+
 	// 检查是否过期
 	if time.Now().After(item.ExpireTime) {
-		// 在读锁中不能删除，标记为不存在
+		// 立即删除过期项，防止内存泄漏
+		delete(c.data, key)
 		return CacheItem{}, false
 	}
-	
+
 	return item, true
 }
 
@@ -56,7 +57,7 @@ func (c *SafeCache) Get(key string) (CacheItem, bool) {
 func (c *SafeCache) Set(key string, url string, expireTime time.Time) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	c.data[key] = CacheItem{
 		URL:        url,
 		ExpireTime: expireTime,
@@ -67,7 +68,7 @@ func (c *SafeCache) Set(key string, url string, expireTime time.Time) {
 func (c *SafeCache) Delete(key string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	delete(c.data, key)
 }
 
@@ -75,7 +76,7 @@ func (c *SafeCache) Delete(key string) {
 func (c *SafeCache) Size() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	
+
 	return len(c.data)
 }
 
@@ -83,7 +84,7 @@ func (c *SafeCache) Size() int {
 func (c *SafeCache) Clear() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	c.data = make(map[string]CacheItem)
 }
 
@@ -103,7 +104,7 @@ func (c *SafeCache) startCleanup() {
 func (c *SafeCache) cleanExpired() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	now := time.Now()
 	for key, item := range c.data {
 		if now.After(item.ExpireTime) {
@@ -122,7 +123,7 @@ func (c *SafeCache) Close() {
 func (c *SafeCache) Stats() map[string]interface{} {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	
+
 	now := time.Now()
 	expired := 0
 	for _, item := range c.data {
@@ -130,7 +131,7 @@ func (c *SafeCache) Stats() map[string]interface{} {
 			expired++
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"total":   len(c.data),
 		"expired": expired,

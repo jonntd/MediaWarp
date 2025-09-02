@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -17,8 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 响应修改创建器
-//
 // 将需要修改上游响应的处理器包装成一个 gin.HandlerFunc 处理器
 func responseModifyCreater(proxy *httputil.ReverseProxy, modifyResponseFN func(rw *http.Response) error) gin.HandlerFunc {
 	proxy.ModifyResponse = modifyResponseFN
@@ -28,19 +27,50 @@ func responseModifyCreater(proxy *httputil.ReverseProxy, modifyResponseFN func(r
 }
 
 // 根据 Strm 文件路径识别 Strm 文件类型
-//
 // 返回 Strm 文件类型和一个可选配置
 func recgonizeStrmFileType(strmFilePath string) (constants.StrmFileType, any, any) {
-	// HTTPStrm 检查 - 检查是否匹配任何 MediaSync 服务器的本地路径
+	logging.Debug("识别 Strm 文件类型，路径：" + strmFilePath)
+
+	// 1. MediaSync 检查 - 检查是否匹配任何 MediaSync 服务器的本地路径
 	for _, server := range config.MediaSync {
 		if strings.HasPrefix(strmFilePath, server.LocalPath) {
-			logging.Debug(strmFilePath + " 成功匹配服务器：" + server.Name + "，路径：" + server.LocalPath + "，Strm 类型：" + string(constants.HTTPStrm))
+			logging.Debug(strmFilePath + " 匹配 MediaSync 服务器：" + server.Name + "，路径：" + server.LocalPath + "，类型：HTTPStrm")
 			return constants.HTTPStrm, nil, nil
 		}
 	}
-	// Alist support has been removed
-	logging.Debug(strmFilePath + " 未匹配任何路径，Strm 类型：" + string(constants.UnknownStrm))
-	return constants.UnknownStrm, nil, nil
+
+	// 2. 读取 .strm 文件内容来判断类型
+	if strings.HasSuffix(strings.ToLower(strmFilePath), ".strm") {
+		content, err := os.ReadFile(strmFilePath)
+		if err != nil {
+			logging.Warning("读取 strm 文件失败：" + strmFilePath + "，错误：" + err.Error())
+			// 读取失败时，默认认为是 HTTPStrm，让后续流程处理
+			return constants.HTTPStrm, nil, nil
+		}
+
+		contentStr := strings.TrimSpace(string(content))
+		logging.Debug("Strm 文件内容：" + contentStr)
+
+		// 3. 根据内容判断类型
+		if contentStr != "" {
+			// 如果包含 rclone 协议格式（如 115://, alist://, onedrive:// 等）
+			if strings.Contains(contentStr, "://") && !strings.HasPrefix(contentStr, "http://") && !strings.HasPrefix(contentStr, "https://") {
+				logging.Debug(strmFilePath + " 检测到 rclone 格式内容：" + contentStr + "，类型：HTTPStrm")
+				return constants.HTTPStrm, nil, nil
+			}
+
+			// 如果是标准 HTTP/HTTPS 链接
+			if strings.HasPrefix(contentStr, "http://") || strings.HasPrefix(contentStr, "https://") {
+				logging.Debug(strmFilePath + " 检测到 HTTP 链接：" + contentStr + "，类型：HTTPStrm")
+				return constants.HTTPStrm, nil, nil
+			}
+		}
+	}
+
+	// 4. 如果都不匹配，但是是 .strm 文件，仍然标记为 HTTPStrm
+	// 这样可以确保所有 .strm 文件都会被处理，避免 UnknownStrm 导致的问题
+	logging.Debug(strmFilePath + " 未匹配具体类型，但是 .strm 文件，默认标记为 HTTPStrm")
+	return constants.HTTPStrm, nil, nil
 }
 
 // 读取响应体
