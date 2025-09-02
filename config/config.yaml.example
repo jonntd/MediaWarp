@@ -32,6 +32,13 @@ ClientFilter:                               # 客户端过滤器
     - Fileball
     - Infuse
 
+HTTPStrm:
+  Enable: True                              # 是否开启 HttpStrm 重定向
+  TransCode: False                          # False：强制关闭转码 True：保持原有转码设置
+  PrefixList:
+    - /media/strm/http
+    - /media/strm/https
+
 # 媒体服务器配置（合并 HTTPStrm 和 RcloneSync）
 MediaSync:                                  # 媒体服务器列表
   - Name: "115"                             # 服务器名称
